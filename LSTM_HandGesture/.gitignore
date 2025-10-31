@@ -1,0 +1,20 @@
+# Folder Virtual Environment
+venv/
+
+# Folder cache Python
+__pycache__/
+*.pyc
+
+# File-file model hasil training
+*.h5
+*.keras
+*.tflite
+*.txt
+
+# Folder dataset (bisa sangat besar)
+MP_Data/
+Keypoints_Data/
+
+# File sistem operasi
+.DS_Store
+Thumbs.db
