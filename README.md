@@ -140,11 +140,11 @@ Gunakan alur ini jika Anda ingin melatih model Anda sendiri (misal: menambah ges
 
 1.  Pastikan Anda memiliki *environment* Python (disarankan `venv`) dengan `tensorflow`, `opencv-python`, `mediapipe`, dan `scikit-learn`.
 2.  Masuk ke folder `LSTM_HandGesture`.
-3.  [cite_start]Sesuaikan `actions = np.array([...])` di `1_collect_data.py` [cite: 1] [cite_start]dan `2_proccess_data.py` [cite: 2] agar sesuai dengan gestur baru Anda.
+3.  Sesuaikan `actions = np.array([...])` di `1_collect_data.py` dan `2_proccess_data.py` agar sesuai dengan gestur baru Anda.
 4.  Jalankan `1_collect_data.py` untuk merekam data baru Anda.
 5.  Jalankan `2_proccess_data.py` untuk memproses data.
-6.  [cite_start]Jalankan `3_train_model.py` untuk melatih model[cite: 3].
-7.  [cite_start]Jalankan `4_convert_to_tflite.py` untuk membuat `model.tflite`[cite: 4].
+6.  Jalankan `3_train_model.py` untuk melatih model.
+7.  Jalankan `4_convert_to_tflite.py` untuk membuat `model.tflite`.
 
 ### Bagian B: Mem-build Image Docker Baru
 
