@@ -1,0 +1,25 @@
+# Folder Virtual Environment
+/LSTM_HandGesture/venv/
+
+# Folder Dataset Mentah dan Keypoints
+/LSTM_HandGesture/MP_Data/
+/LSTM_HandGesture/Keypoints_Data/
+
+# Hasil Training dan Model (File Besar)
+*.keras
+*.tflite
+*.txt
+
+# File .tflite di dalam folder docker
+/gesture_docker/model.tflite
+
+# File .txt akurasi
+/LSTM_HandGesture/latest_accuracy.txt
+
+# File cache Python
+__pycache__/
+*.pyc
+
+# File OS
+.DS_Store
+Thumbs.db
