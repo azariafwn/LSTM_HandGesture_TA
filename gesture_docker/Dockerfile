@@ -43,8 +43,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Salin sisa file aplikasi Anda
-COPY run_model_no_serial.py .
+COPY run_model.py .
 COPY model.tflite .
 
 # Perintah default yang akan dijalankan saat container startup
-CMD ["python3", "run_model_no_serial.py"]
+CMD ["python3", "run_model.py"]
