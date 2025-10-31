@@ -14,7 +14,7 @@ Repositori ini dibagi menjadi dua alur kerja utama yang masing-masing ada di fol
     Folder ini berisi semua skrip untuk alur kerja *data science*—mulai dari mengumpulkan data, memproses, melatih, hingga mengonversi model. Ini adalah "dapur" tempat model Anda dibuat.
 
 * `gesture_docker/`
-    Folder ini berisi semua file yang diperlukan untuk *deployment*—`Dockerfile`, skrip inferensi `run_model_no_serial.py`, dan `requirements.txt` untuk membuat image Docker yang siap pakai.
+    Folder ini berisi semua file yang diperlukan untuk *deployment*—`Dockerfile`, skrip inferensi `run_model.py`, dan `requirements.txt` untuk membuat image Docker yang siap pakai.
 
 ---
 
@@ -52,13 +52,13 @@ Berikut adalah penjelasan rinci dari setiap skrip dalam proyek ini.
         1.  Mulai dari `python:3.11-slim-bookworm` (OS Linux ARM64).
         2.  Menginstal semua *library* sistem (`libgl1`, `libglib2.0-0`, `libxcb1`, dll.) yang dibutuhkan oleh OpenCV (`cv2.imshow`) agar bisa memunculkan jendela GUI.
         3.  Menginstal 3 paket Python dari `requirements.txt`: `tensorflow`, `opencv-python`, dan `mediapipe`
-        4.  Menyalin skrip `run_model_no_serial.py` dan `model.tflite` ke dalam image.
-        5.  Mengatur perintah default untuk menjalankan `run_model_no_serial.py` saat container dimulai.
+        4.  Menyalin skrip `run_model.py` dan `model.tflite` ke dalam image.
+        5.  Mengatur perintah default untuk menjalankan `run_model.py` saat container dimulai.
 
 * **`requirements.txt`**
     * **Tujuan:** Memberi tahu Docker paket Python apa saja yang harus diinstal (`tensorflow`, `opencv-python`, `mediapipe`).
 
-* **`run_model_no_serial.py`**
+* **`run_model.py`**
     * **Tujuan:** Ini adalah skrip utama yang berjalan **di dalam Docker**.
     * **Cara Kerja:** Ini adalah versi modifikasi dari `5_test_model_live.py` di mana **semua kode serial telah dihapus**. Skrip ini memuat `model.tflite` , mengambil gambar dari webcam, melakukan deteksi, dan menampilkan hasilnya di jendela OpenCV.
 
@@ -149,7 +149,7 @@ Gunakan alur ini jika Anda ingin melatih model Anda sendiri (misal: menambah ges
 ### Bagian B: Mem-build Image Docker Baru
 
 1.  Salin `model.tflite` baru dari `LSTM_HandGesture` ke `gesture_docker`.
-2.  **PENTING:** Edit baris `actions = ...` di `gesture_docker/run_model_no_serial.py` agar cocok dengan gestur baru Anda.
+2.  **PENTING:** Edit baris `actions = ...` di `gesture_docker/run_model.py` agar cocok dengan gestur baru Anda.
 3.  Masuk ke folder `gesture_docker`.
 4.  Jalankan `docker buildx` untuk mem-build dan mem-push ke Docker Hub Anda:
     ```bash
