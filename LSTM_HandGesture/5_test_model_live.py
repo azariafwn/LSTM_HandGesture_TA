@@ -52,6 +52,12 @@ last_sent_action = '...'
 prediction_threshold = 0.97 # threshold disesuaikan sama akurasi model (terakhir 97.9%)
 
 cap = cv2.VideoCapture(0)
+
+# --- PENINGKATAN FPS ---
+# Memaksa kamera menggunakan format stream MJPG
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+# ------------------------
+
 prev_time = 0
 fps = 0
 
