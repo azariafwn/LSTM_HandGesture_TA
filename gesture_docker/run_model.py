@@ -30,16 +30,19 @@ output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
 # ----------------------------------
 
-actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down'])
+actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down', 'close_to_open_palm', 'open_to_close_palm'])
 sequence = []
 
 current_action = '...'
-prediction_threshold = 0.97 
+prediction_threshold = 0.9 # Sesuaikan ini jika perlu (model terakhir 93.75%)
 
 # --- Buka kamera ---
-# Di dalam Docker, kamera mungkin 0, 1, atau lebih. 
-# Kita coba buka '0' secara default.
 cap = cv2.VideoCapture(0) 
+
+# --- Optimasi FPS ---
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+# -----------------------------------------
+
 if not cap.isOpened():
     print("Error: Tidak bisa membuka kamera. Pastikan kamera terpasang dan diizinkan di Docker.")
     exit()
@@ -89,24 +92,32 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
             if confidence > prediction_threshold:
                 temp_action = actions[predicted_class_index]
             
-            # --- Perbarui current_action HANYA jika ada deteksi baru ---
-            # Berbeda dari kode lama, kita tidak menyimpan 'last_sent_action'
-            # Kita hanya perbarui tampilan
-            if temp_action != '...':
-                 current_action = temp_action
-            
-            prob_text = f"{actions[0]}: {prediction[0][0]:.2f} | {actions[1]}: {prediction[0][1]:.2f}"
-            cv2.putText(image, prob_text, (15, 60), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
+            # --- Tampilan probabilitas ---
+            # Tampilkan probabilitas 2 gestur pertama di baris pertama
+            prob_text_1 = f"{actions[0]}: {prediction[0][0]:.2f} | {actions[1]}: {prediction[0][1]:.2f}"
+            # Tampilkan probabilitas 2 gestur baru di baris kedua
+            prob_text_2 = f"{actions[2]}: {prediction[0][2]:.2f} | {actions[3]}: {prediction[0][3]:.2f}"
+
+            cv2.putText(image, prob_text_1, (15, 60), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(image, prob_text_2, (15, 80), # Sedikit lebih rendah dari prob_text_1
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+            # ----------------------------------------------------
 
         # --- Logika pengiriman sinyal serial DIHAPUS ---
+        # (Gunakan logika update 'current_action' yang sederhana)
+        if temp_action != '...':
+            current_action = temp_action
 
         cv2.putText(image, f'FPS: {int(fps)}', (image.shape[1] - 120, 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
         cv2.putText(image, f'FRAMES: {len(sequence)}/30', (15, 30), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
-        cv2.putText(image, f'GESTUR: {current_action}', (15, 90), 
+        
+        # --- PERUBAHAN 4: Sesuaikan posisi Y GESTUR ---
+        cv2.putText(image, f'GESTUR: {current_action}', (15, 120), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+        # ---------------------------------------------
 
         cv2.imshow('OpenCV Feed - Model TFLite', image)
 
