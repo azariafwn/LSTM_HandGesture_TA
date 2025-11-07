@@ -29,7 +29,7 @@ output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
 # ----------------------------------
 
-actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down', 'close_to_open_palm', 'open_to_close_palm'])
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'close_to_two'])
 sequence = []
 
 # --- Variabel untuk debounce/mencegah spam print ke terminal ---

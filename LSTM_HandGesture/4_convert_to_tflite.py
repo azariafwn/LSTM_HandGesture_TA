@@ -8,12 +8,11 @@ except FileNotFoundError:
     accuracy_str = "N/A"
 # -----------------------------------------------
 
-# --- INI ADALAH PERUBAHAN KUNCI ---
 # Tentukan spesifikasi input STATIS (Batch size=1)
 INPUT_SHAPE = (1, 30, 63) 
 # -------------------------------------
 
-# Muat model .keras terbaik Anda (yang dilatih dengan 'tanh' SUDAH BENAR)
+# Muat model .keras terbaik
 model = tf.keras.models.load_model('hand_gesture_model_terbaik.keras')
 print("Model .keras berhasil dimuat.")
 

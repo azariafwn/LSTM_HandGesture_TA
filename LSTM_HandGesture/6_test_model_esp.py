@@ -41,7 +41,7 @@ output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
 # ----------------------------------
 
-actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down', 'close_to_open_palm', 'open_to_close_palm'])
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'close_to_two'])
 sequence = []
 
 # --- Variabel untuk debounce/mencegah spam sinyal ---
@@ -113,20 +113,27 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
         # --- Logika pengiriman sinyal serial ---
         # Hanya kirim sinyal jika ada perubahan aksi (misal: dari '...' ke 'ON' atau 'ON' ke 'OFF')
         if temp_action != last_sent_action:
-            if temp_action == 'thumbs_down_to_up':
-                ser.write(b'1') # Kirim byte '1' 
-                print("MENGIRIM SINYAL: 1 (thumbs_down_to_up)")
-            elif temp_action == 'thumbs_up_to_down':
-                ser.write(b'0') # Kirim byte '0' 
-                print("MENGIRIM SINYAL: 0 (thumbs_up_to_down)")
+            # if temp_action == 'thumbs_down_to_up':
+            #     ser.write(b'1') # Kirim byte '1' 
+            #     print("MENGIRIM SINYAL: 1 (thumbs_down_to_up)")
+            # elif temp_action == 'thumbs_up_to_down':
+            #     ser.write(b'0') # Kirim byte '0' 
+            #     print("MENGIRIM SINYAL: 0 (thumbs_up_to_down)")
             
             # Tentukan sinyal apa yang ingin Anda kirim untuk gestur baru? Misalnya, '2' dan '3'
-            elif temp_action == 'close_to_open_palm':
-                ser.write(b'2') # Kirim byte '2' 
-                print("MENGIRIM SINYAL: 2 (close_to_open_palm)")
+            if temp_action == 'close_to_open_palm':
+                ser.write(b'1')
+                print("MENGIRIM SINYAL: 1 (close_to_open_palm)")
             elif temp_action == 'open_to_close_palm':
-                ser.write(b'3') # Kirim byte '3' 
-                print("MENGIRIM SINYAL: 3 (open_to_close_palm)")
+                ser.write(b'0')
+                print("MENGIRIM SINYAL: 0 (open_to_close_palm)")
+                
+            elif temp_action == 'close_to_one':
+                ser.write(b'11')
+                print("MENGIRIM SINYAL: 11 (close_to_one)")
+            elif temp_action == 'close_to_two':
+                ser.write(b'12')
+                print("MENGIRIM SINYAL: 12 (close_to_two)")
             # ---------------------
 
             last_sent_action = temp_action
