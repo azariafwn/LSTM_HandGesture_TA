@@ -35,7 +35,7 @@ y = to_categorical(labels).astype(int)
 
 # Bagi data menjadi data latih (train) dan data uji (test)
 # Menggunakan 20% data untuk testing
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=100, stratify=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42, stratify=y)
 
 # # --- MEMBANGUN ARSITEKTUR MODEL LSTM DENGAN DROPOUT ---  
 model = Sequential()
