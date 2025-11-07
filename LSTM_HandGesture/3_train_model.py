@@ -9,7 +9,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 # Arahkan path ke folder Keypoints_Data
 DATA_PATH = os.path.join('Keypoints_Data') 
 
-actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down', 'close_to_open_palm', 'open_to_close_palm'])
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'close_to_two'])
 sequence_length = 30
 # --------------------------------------------------------
 
