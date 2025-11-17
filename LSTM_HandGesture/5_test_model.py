@@ -5,6 +5,13 @@ import mediapipe as mp
 import tensorflow as tf
 import time
 
+# --- KONFIGURASI UTAMA ---
+USE_VIDEO_FILE = False          # Ubah ke True untuk testing pake video
+VIDEO_PATH = 'video_testing.mp4' 
+COOLDOWN_DURATION = 2.0        # Jeda waktu (detik) setelah deteksi berhasil
+PREDICTION_THRESHOLD = 0.97    # Ambang batas kepercayaan
+# -------------------------
+
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
@@ -20,33 +27,36 @@ def extract_keypoints(results):
     rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
     return rh
 
-# --- PENGATURAN MODEL TFLITE ---
+# --- LOAD MODEL TFLITE ---
 TFLITE_MODEL_PATH = 'model.tflite'
 interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
-# ----------------------------------
 
-actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'close_to_two', 'open_to_one', 'open_to_two'])
+# --- DEFINISI GESTUR (6 KELAS) ---
+actions = np.array([
+    'close_to_open_palm', 'open_to_close_palm',
+    'close_to_one', 'close_to_two',
+    'open_to_one', 'open_to_two'
+])
+
 sequence = []
-
-# --- Variabel untuk debounce/mencegah spam print ke terminal ---
 current_action = '...'
-last_sent_action = '...' 
+last_valid_time = 0 # Variabel untuk mencatat waktu terakhir deteksi
 
-# Anda bisa turunkan ini ke 0.90 agar sesuai dengan akurasi 93.75% model terakhir Anda
-prediction_threshold = 0.95 
-
-cap = cv2.VideoCapture(0)
-
-# --- PENINGKATAN FPS ---
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-# ------------------------
+# --- INISIALISASI INPUT ---
+if USE_VIDEO_FILE:
+    print(f"MODE: Menggunakan Video File ({VIDEO_PATH})")
+    cap = cv2.VideoCapture(VIDEO_PATH)
+else:
+    print("MODE: Menggunakan Kamera Live")
+    cap = cv2.VideoCapture(0) # Ganti ke 1 jika pakai webcam eksternal
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
 
 if not cap.isOpened():
-    print("Error: Tidak bisa membuka kamera.")
+    print("Error: Tidak bisa membuka sumber input.")
     exit()
 
 prev_time = 0
@@ -54,83 +64,88 @@ fps = 0
 
 print("\nMulai deteksi... Tekan 'q' untuk keluar.")
 
-try:
-    with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=0.7) as holistic:
-        while cap.isOpened():
-            curr_time = time.time()
-            if prev_time > 0:
-                fps = 1 / (curr_time - prev_time)
-            prev_time = curr_time
+with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=0.7) as holistic:
+    while cap.isOpened():
+        curr_time = time.time()
+        if prev_time > 0: fps = 1 / (curr_time - prev_time)
+        prev_time = curr_time
 
-            ret, frame = cap.read()
-            if not ret: break
-
-            image, results = mediapipe_detection(frame, holistic)
-
-            if results.right_hand_landmarks:
-                mp_drawing.draw_landmarks(
-                    image, 
-                    results.right_hand_landmarks, 
-                    mp_holistic.HAND_CONNECTIONS)
-
-            keypoints = extract_keypoints(results)
-            sequence.append(keypoints)
-            sequence = sequence[-30:]
-
-            temp_action = '...'
-
-            if len(sequence) == 30:
-                input_data = np.expand_dims(sequence, axis=0)
-                input_data = np.array(input_data, dtype=np.float32)
-
-                interpreter.set_tensor(input_details[0]['index'], input_data)
-                interpreter.invoke()
-                prediction = interpreter.get_tensor(output_details[0]['index'])
-
-                predicted_class_index = np.argmax(prediction)
-                confidence = prediction[0][predicted_class_index]
-
-                if confidence > prediction_threshold:
-                    temp_action = actions[predicted_class_index]
-
-                # Tampilan probabilitas (visual)
-                prob_text_1 = f"{actions[0]}: {prediction[0][0]:.2f} | {actions[1]}: {prediction[0][1]:.2f}"
-                prob_text_2 = f"{actions[2]}: {prediction[0][2]:.2f} | {actions[3]}: {prediction[0][3]:.2f}"
-
-                cv2.putText(image, prob_text_1, (15, 60), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-                cv2.putText(image, prob_text_2, (15, 80), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-
-            # --- Cetak ke Terminal ---
-            # Hanya cetak jika ada perubahan aksi (mencegah spam)
-            if temp_action != last_sent_action:
-                
-                # Hanya cetak jika aksinya bukan "diam"
-                if temp_action != '...':
-                    print(f"GESTUR BARU TERDETEKSI: {temp_action}")
-
-                last_sent_action = temp_action
-
-            current_action = last_sent_action # Update tampilan di layar
-            # ----------------------------------------------------
-
-            cv2.putText(image, f'FPS: {int(fps)}', (image.shape[1] - 120, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, f'FRAMES: {len(sequence)}/30', (15, 30), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(image, f'GESTUR: {current_action}', (15, 120), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-
-            cv2.imshow('OpenCV Feed - Tes Model TFLite', image)
-
-            if cv2.waitKey(10) & 0xFF == ord('q'):
+        ret, frame = cap.read()
+        
+        # Logika Loop Video
+        if not ret:
+            if USE_VIDEO_FILE:
+                print("Video selesai. Mengulang...")
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+            else:
                 break
 
-except KeyboardInterrupt:
-    print("\nMenutup program...")
-finally:
-    # Selalu pastikan kamera dan jendela ditutup
-    cap.release()
-    cv2.destroyAllWindows()
-    print("Selesai.")
+        image, results = mediapipe_detection(frame, holistic)
+
+        if results.right_hand_landmarks:
+            mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+
+        keypoints = extract_keypoints(results)
+        sequence.append(keypoints)
+        sequence = sequence[-30:]
+
+        temp_action = '...'
+        confidence = 0.0
+
+        # --- LOGIKA DETEKSI ---
+        if len(sequence) == 30:
+            input_data = np.expand_dims(sequence, axis=0).astype(np.float32)
+            interpreter.set_tensor(input_details[0]['index'], input_data)
+            interpreter.invoke()
+            prediction = interpreter.get_tensor(output_details[0]['index'])
+            
+            predicted_class_index = np.argmax(prediction)
+            confidence = prediction[0][predicted_class_index]
+
+            if confidence > PREDICTION_THRESHOLD:
+                temp_action = actions[predicted_class_index]
+
+            # Visualisasi Probabilitas
+            y_pos = 60
+            for i, action_name in enumerate(actions):
+                if i > 3: break # Tampilkan 4 teratas saja agar layar tidak penuh
+                prob_text = f"{action_name}: {prediction[0][i]:.2f}"
+                color = (0, 255, 0) if i == predicted_class_index and confidence > PREDICTION_THRESHOLD else (0, 0, 0)
+                cv2.putText(image, prob_text, (15, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+                y_pos += 20
+
+        # --- LOGIKA COOLDOWN ---
+        time_since_last = curr_time - last_valid_time
+        in_cooldown = time_since_last < COOLDOWN_DURATION
+
+        if temp_action != '...':
+            if not in_cooldown:
+                # Jika gestur valid DAN tidak sedang cooldown -> PROSES
+                print(f"GESTUR TERDETEKSI: {temp_action} ({confidence*100:.1f}%)")
+                current_action = temp_action
+                last_valid_time = curr_time # Reset timer cooldown
+            else:
+                # Jika sedang cooldown, abaikan (atau beri log debug)
+                # print(f"Mengabaikan {temp_action} (Cooldown: {COOLDOWN_DURATION - time_since_last:.1f}s)")
+                pass
+        
+        # --- TAMPILAN VISUAL ---
+        # Status Cooldown di Layar
+        if in_cooldown:
+            cv2.putText(image, f"JEDA: {COOLDOWN_DURATION - time_since_last:.1f}s", (image.shape[1] - 150, 70), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2, cv2.LINE_AA)
+        else:
+            cv2.putText(image, "SIAP DETEKSI", (image.shape[1] - 180, 70), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+
+        cv2.putText(image, f'FPS: {int(fps)}', (image.shape[1] - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+        cv2.putText(image, f'LAST ACTION: {current_action}', (15, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+
+        cv2.imshow('OpenCV Feed - Test Model (Cooldown)', image)
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            break
+
+cap.release()
+cv2.destroyAllWindows()
+print("Selesai.")
