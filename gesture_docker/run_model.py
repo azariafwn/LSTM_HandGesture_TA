@@ -1,65 +1,28 @@
-# Nama file: 7_test_model_raspi.py
 import cv2
 import numpy as np
 import os
 import mediapipe as mp
 import tensorflow as tf
 import time
-import lgpio  # <-- Menggantikan 'serial'
+import requests
+from requests.exceptions import ConnectionError
 
-# ==================================
-# --- PENGATURAN GPIO RASPBERRY PI ---
-# ==================================
-# Gunakan nomor pin BCM (GPIO), bukan nomor pin fisik.
-RELAY_PIN_1 = 17  # Ganti jika perlu (misal: GPIO 17)
-RELAY_PIN_2 = 27  # Ganti jika perlu (misal: GPIO 27)
+# ==========================================
+# --- KONFIGURASI SISTEM (RASPBERRY PI) ---
+# ==========================================
+# IP Address ESP8266 (Pastikan RPi satu jaringan dengan ESP)
+ESP1_IP = "10.141.159.103"  # <-- IP ESP 1 (Device 1)
+ESP2_IP = "10.141.159.149"  # <-- IP ESP 2 (Device 2)
 
-# Di Raspberry Pi 5, 40-pin header terhubung ke chip 4
-GPIO_CHIP = 4 
+# Konfigurasi Waktu
+COOLDOWN_DURATION = 1.5         
+POST_COMMAND_COOLDOWN = 4.0     
+STATE_TIMEOUT = 5 
+PREDICTION_THRESHOLD = 0.97
 
-# Tentukan logika relay Anda
-# 1 = HIGH = ON
-# 0 = LOW  = OFF
-RELAY_ON = 1
-RELAY_OFF = 0
+print(f"✅ [INFO] Konfigurasi: Device 1 @ {ESP1_IP}, Device 2 @ {ESP2_IP}")
 
-def setup_gpio():
-    """Membuka chip GPIO Pi 5, mengklaim 2 pin, dan mengembalikannya."""
-    try:
-        # Buka chip GPIO utama Pi 5
-        h = lgpio.gpiochip_open(GPIO_CHIP)
-        
-        # Klaim pin 1 sebagai output
-        lgpio.gpio_claim_output(h, RELAY_PIN_1)
-        # Klaim pin 2 sebagai output
-        lgpio.gpio_claim_output(h, RELAY_PIN_2)
-        
-        # Pastikan kedua relay OFF saat program dimulai
-        lgpio.gpio_write(h, RELAY_PIN_1, RELAY_OFF)
-        lgpio.gpio_write(h, RELAY_PIN_2, RELAY_OFF)
-        
-        print(f"✅ [INFO] GPIO chip {GPIO_CHIP} dibuka.")
-        print(f"✅ [INFO] Pin {RELAY_PIN_1} (Relay 1) & {RELAY_PIN_2} (Relay 2) siap.")
-        return h
-    except Exception as e:
-        print(f"❌ GAGAL setup GPIO: {e}")
-        print("Pastikan Docker container dijalankan dengan flag '--device=/dev/gpiochip4'")
-        print("Dan/atau user di host Pi ada di grup 'gpio'.")
-        return None
-
-def cleanup_gpio(h):
-    """Mematikan relay dan menutup handle GPIO."""
-    if h:
-        print("\n[INFO] Membersihkan GPIO...")
-        lgpio.gpio_write(h, RELAY_PIN_1, RELAY_OFF) # Matikan relay 1
-        lgpio.gpio_write(h, RELAY_PIN_2, RELAY_OFF) # Matikan relay 2
-        lgpio.gpiochip_close(h)                     # Tutup handle
-        print("[INFO] GPIO cleanup selesai.")
-
-# ==================================
-# --- KODE DETEKSI (Sama seperti file 6) ---
-# ==================================
-
+# --- INISIALISASI MEDIAPIPE ---
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
@@ -75,47 +38,70 @@ def extract_keypoints(results):
     rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
     return rh
 
-# --- PENGATURAN MODEL TFLITE ---
+# --- LOAD MODEL TFLITE ---
 TFLITE_MODEL_PATH = 'model.tflite'
-interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
-interpreter.allocate_tensors()
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-print("✅ [INFO] Model TFLite berhasil dimuat.")
-# ----------------------------------
+try:
+    interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    print("✅ [INFO] Model TFLite berhasil dimuat.")
+except Exception as e:
+    print(f"❌ [ERROR] Gagal memuat model: {e}")
+    exit()
 
-actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down', 'close_to_open_palm', 'open_to_close_palm'])
+# --- FUNGSI KIRIM PERINTAH WI-FI ---
+def send_command(command, target_ip):
+    url = f"http://{target_ip}/{command}" 
+    try:
+        # Timeout diset 2 detik
+        response = requests.get(url, timeout=2.0) 
+        if response.status_code == 200:
+            print(f"🚀 [BERHASIL] Mengirim ke {target_ip}: Perintah {command}")
+        else:
+            print(f"⚠️ [GAGAL] Status Code: {response.status_code}")
+    except (ConnectionError, requests.exceptions.Timeout):
+        print(f"❌ [ERROR] Gagal koneksi ke ESP di {target_ip}") 
+
+# --- DEFINISI GESTUR ---
+actions = np.array([
+    'close_to_open_palm', 'open_to_close_palm',
+    'close_to_one', 'close_to_two',
+    'open_to_one', 'open_to_two'
+])
+
+ACTION_GESTURES = ['close_to_open_palm', 'open_to_close_palm']
+SELECTION_GESTURES = ['close_to_one', 'close_to_two', 'open_to_one', 'open_to_two']
+
 sequence = []
+current_action_state = None 
+last_action_time = 0
 
-current_action = '...'
-last_sent_action = '...' 
+# Timer Cooldown
+last_valid_time = 0 
+current_cooldown_limit = COOLDOWN_DURATION
 
-# Sesuaikan threshold jika perlu
-prediction_threshold = 0.97 
-
+# --- BUKA KAMERA ---
 cap = cv2.VideoCapture(0)
+# Atur resolusi rendah agar performa RPi lebih cepat (opsional)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-print("✅ [INFO] Kamera webcam berhasil dibuka.")
+
+if not cap.isOpened():
+    print("❌ [ERROR] Kamera tidak ditemukan!")
+    exit()
+
+print("✅ [INFO] Kamera dibuka. Mulai deteksi...")
 
 prev_time = 0
 fps = 0
-
-# ==================================
-# --- MAIN LOOP DENGAN GPIO ---
-# ==================================
-
-gpio_handle = setup_gpio()
-if not gpio_handle:
-    cap.release()
-    cv2.destroyAllWindows()
-    exit()
 
 try:
     with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=0.7) as holistic:
         while cap.isOpened():
             curr_time = time.time()
-            if prev_time > 0:
-                fps = 1 / (curr_time - prev_time)
+            if prev_time > 0: fps = 1 / (curr_time - prev_time)
             prev_time = curr_time
 
             ret, frame = cap.read()
@@ -123,78 +109,104 @@ try:
 
             image, results = mediapipe_detection(frame, holistic)
 
+            # Gambar landmark (Opsional, matikan jika ingin lebih cepat)
             if results.right_hand_landmarks:
-                mp_drawing.draw_landmarks(
-                    image, 
-                    results.right_hand_landmarks, 
-                    mp_holistic.HAND_CONNECTIONS)
+                mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
 
             keypoints = extract_keypoints(results)
             sequence.append(keypoints)
             sequence = sequence[-30:]
 
             temp_action = '...'
-
+            
             if len(sequence) == 30:
-                input_data = np.expand_dims(sequence, axis=0)
-                input_data = np.array(input_data, dtype=np.float32)
-
+                input_data = np.expand_dims(sequence, axis=0).astype(np.float32)
                 interpreter.set_tensor(input_details[0]['index'], input_data)
                 interpreter.invoke()
                 prediction = interpreter.get_tensor(output_details[0]['index'])
-
-                predicted_class_index = np.argmax(prediction)
-                confidence = prediction[0][predicted_class_index]
-
-                if confidence > prediction_threshold:
-                    temp_action = actions[predicted_class_index]
-
-                prob_text_1 = f"{actions[0]}: {prediction[0][0]:.2f} | {actions[1]}: {prediction[0][1]:.2f}"
-                prob_text_2 = f"{actions[2]}: {prediction[0][2]:.2f} | {actions[3]}: {prediction[0][3]:.2f}"
-                cv2.putText(image, prob_text_1, (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-                cv2.putText(image, prob_text_2, (15, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-
-            # --- Logika pengiriman sinyal GPIO (PENGGANTI SERIAL) ---
-            if temp_action != last_sent_action:
                 
-                # Logika dari kode ESP32 Anda:
-                # '1' -> Relay 1 ON
-                # '0' -> Relay 1 OFF
-                # '2' -> Relay 2 ON
-                # '3' -> Relay 2 OFF
-                
-                if temp_action == 'thumbs_down_to_up':
-                    lgpio.gpio_write(gpio_handle, RELAY_PIN_1, RELAY_ON)
-                    print("GPIO ACTION: Relay 1 ON 💡")
-                elif temp_action == 'thumbs_up_to_down':
-                    lgpio.gpio_write(gpio_handle, RELAY_PIN_1, RELAY_OFF)
-                    print("GPIO ACTION: Relay 1 OFF 🔌")
-                
-                elif temp_action == 'close_to_open_palm':
-                    lgpio.gpio_write(gpio_handle, RELAY_PIN_2, RELAY_ON)
-                    print("GPIO ACTION: Relay 2 ON 💡")
-                elif temp_action == 'open_to_close_palm':
-                    lgpio.gpio_write(gpio_handle, RELAY_PIN_2, RELAY_OFF)
-                    print("GPIO ACTION: Relay 2 OFF 🔌")
+                if np.max(prediction) > PREDICTION_THRESHOLD:
+                    temp_action = actions[np.argmax(prediction)]
 
-                last_sent_action = temp_action
-            # ----------------------------------------------------
-
-            current_action = last_sent_action
+            # =====================================================
+            # LOGIKA STATE MACHINE (DUAL ESP + COOLDOWN)
+            # =====================================================
             
+            current_time_for_logic = time.time()
+            final_command_sent = False 
+            
+            time_since_last = current_time_for_logic - last_valid_time
+            in_cooldown = time_since_last < current_cooldown_limit
+
+            if temp_action != '...' and not in_cooldown:
+                
+                # 1. JIKA MENUNGGU SELEKSI PERANGKAT (State Aktif)
+                if current_action_state is not None:
+                    if temp_action in SELECTION_GESTURES:
+                        
+                        if temp_action in ['close_to_one', 'open_to_one']:
+                            # DEVICE 1 -> Kirim ke ESP1_IP
+                            cmd = '11' if current_action_state == 'AKSI_ON' else '10'
+                            print(f"📡 PERINTAH: PERANGKAT 1 -> {current_action_state}")
+                            send_command(cmd, ESP1_IP) 
+                        
+                        elif temp_action in ['close_to_two', 'open_to_two']:
+                            # DEVICE 2 -> Kirim ke ESP2_IP
+                            cmd = '21' if current_action_state == 'AKSI_ON' else '20'
+                            print(f"📡 PERINTAH: PERANGKAT 2 -> {current_action_state}")
+                            send_command(cmd, ESP2_IP)
+                        
+                        final_command_sent = True 
+                        last_valid_time = current_time_for_logic 
+                        current_cooldown_limit = POST_COMMAND_COOLDOWN 
+                        print(f"⏳ SISTEM ISTIRAHAT {POST_COMMAND_COOLDOWN} DETIK...")
+                    
+                    elif temp_action in ACTION_GESTURES:
+                        pass 
+
+                # 2. JIKA MENUNGGU GESTUR AKSI
+                else:
+                    if temp_action in ACTION_GESTURES:
+                        if temp_action == 'close_to_open_palm':
+                            current_action_state = 'AKSI_ON'
+                        elif temp_action == 'open_to_close_palm':
+                            current_action_state = 'AKSI_OFF'
+                        
+                        print(f"🔄 STATE SET: {current_action_state}")
+                        last_action_time = current_time_for_logic
+                        last_valid_time = current_time_for_logic
+                        current_cooldown_limit = COOLDOWN_DURATION 
+
+            # Reset State logic
+            if current_action_state and (current_time_for_logic - last_action_time > STATE_TIMEOUT):
+                print("❌ TIMEOUT: State dibatalkan.")
+                current_action_state = None
+            
+            if final_command_sent:
+                current_action_state = None
+
+            # --- TAMPILAN VISUAL (PENTING UNTUK DEBUGGING) ---
+            # Pastikan Anda menjalankan Docker dengan akses display jika ingin melihat ini
+            if in_cooldown:
+                remaining = current_cooldown_limit - time_since_last
+                status_msg = "RESET TANGAN!" if remaining > 2.0 else "JEDA..."
+                cv2.putText(image, f"{status_msg} ({remaining:.1f}s)", (15, 200), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+            else:
+                cv2.putText(image, "SIAP", (15, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            
+            state_text = f'STATE: {current_action_state}' if current_action_state else 'STATE: Menunggu'
+            cv2.putText(image, state_text, (15, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             cv2.putText(image, f'FPS: {int(fps)}', (image.shape[1] - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, f'FRAMES: {len(sequence)}/30', (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(image, f'GESTUR: {current_action}', (15, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-            # Tampilkan feed (memerlukan X11 forwarding dari Docker)
-            cv2.imshow('Raspberry Pi - TFLite Gesture Control', image)
-
+            cv2.imshow('Raspi Gesture Control', image)
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
 
+except Exception as e:
+    print(f"CRITICAL ERROR: {e}")
+
 finally:
-    # Blok ini akan selalu berjalan, bahkan jika ada error di 'try'
     cap.release()
     cv2.destroyAllWindows()
-    cleanup_gpio(gpio_handle) # Pastikan relay mati
-    print("Program ditutup, semua sumber daya dibebaskan.")
+    print("Program ditutup.")

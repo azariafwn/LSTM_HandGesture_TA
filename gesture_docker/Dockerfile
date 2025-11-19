@@ -5,7 +5,6 @@ FROM --platform=linux/arm64 python:3.11-slim-bookworm
 WORKDIR /app
 
 # Install dependensi sistem LENGKAP
-# Install dependensi sistem LENGKAP
 RUN apt-get update && apt-get install -y \
     \
     # Dependensi untuk kompilasi C (dibutuhkan lgpio/pip)
