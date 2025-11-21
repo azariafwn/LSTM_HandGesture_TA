@@ -14,8 +14,8 @@ COOLDOWN_DURATION = 1.5
 POST_COMMAND_COOLDOWN = 3.0     
 
 # --- DEFINISI IP ADDRESS ESP ---
-ESP1_IP = "10.141.159.103"  # <-- IP ESP 1 (Device 1)
-ESP2_IP = "10.141.159.149"  # <-- IP ESP 2 (Device 2)
+ESP1_IP = "10.141.159.149"  # <-- IP ESP 1 (Device 1)
+ESP2_IP = "10.141.159.103"  # <-- IP ESP 2 (Device 2)
 
 # ---------------------------------------------
 
@@ -59,14 +59,10 @@ def send_command(command, target_ip):
         print(f"Peringatan: Gagal koneksi ke ESP di {target_ip} ({command})") 
 
 # --- DEFINISI GESTUR ---
-actions = np.array([
-    'close_to_open_palm', 'open_to_close_palm',
-    'close_to_one', 'close_to_two',
-    'open_to_one', 'open_to_two'
-])
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three'])
 
 ACTION_GESTURES = ['close_to_open_palm', 'open_to_close_palm']
-SELECTION_GESTURES = ['close_to_one', 'close_to_two', 'open_to_one', 'open_to_two']
+SELECTION_GESTURES = ['close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three']
 
 sequence = []
 current_action_state = None 

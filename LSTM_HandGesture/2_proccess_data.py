@@ -23,7 +23,7 @@ def extract_keypoints(results):
 DATA_PATH = os.path.join('MP_Data')
 KEYPOINTS_PATH = os.path.join('Keypoints_Data')
 # actions = np.array(['thumbs_down_to_up', 'thumbs_up_to_down','close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'close_to_two'])
-actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'close_to_two', 'open_to_one', 'open_to_two'])
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three'])
 sequence_length = 30
 # --------------------
 
