@@ -3,6 +3,7 @@ import numpy as np
 import os
 import shutil 
 import mediapipe as mp
+import time
 
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
@@ -51,6 +52,9 @@ validate_data()
 for action in actions:
     os.makedirs(os.path.join(KEYPOINTS_PATH, action), exist_ok=True)
 
+start_time = time.time()
+print(f"Mulai memproses data pada: {time.ctime(start_time)}")
+
 with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
     for action in actions:
         action_path = os.path.join(DATA_PATH, action)
@@ -78,4 +82,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
             else:
                 print(f"Skipping sequence {sequence} for action {action} due to incorrect frame count.")
             
+end_time = time.time()
+total_duration = end_time - start_time
 print("\nEkstraksi fitur selesai untuk semua data yang valid.")
+print(f"Total Waktu Proses: {total_duration:.2f} detik ({total_duration/60:.2f} menit).")
