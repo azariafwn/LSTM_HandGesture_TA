@@ -1,10 +1,13 @@
 import numpy as np
 import os
+import time
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+
+total_start = time.time()
 
 # Arahkan path ke folder Keypoints_Data
 DATA_PATH = os.path.join('Keypoints_Data') 
@@ -65,6 +68,9 @@ model_checkpoint = ModelCheckpoint(
     save_best_only=True
 )
 
+print("\nMulai Training Model...")
+training_start = time.time()
+
 # --- PELATIHAN MODEL ---
 # Gunakan X_test dan y_test sebagai data validasi
 # Model akan dievaluasi pada data ini di setiap akhir epoch
@@ -75,6 +81,9 @@ history = model.fit(
     validation_data=(X_test, y_test),
     callbacks=[early_stopping, model_checkpoint]
 )
+
+training_end = time.time() # Catat waktu selesai training
+print(f"Training Selesai dalam: {training_end - training_start:.2f} detik.")
 
 # --- SIMPAN MODEL FINAL (OPSIONAL, KARENA SUDAH DISIMPAN OLEH CHECKPOINT) ---
 model.save('hand_gesture_model_final.keras')
@@ -90,3 +99,6 @@ print(f"Akurasi pada data tes: {accuracy*100:.2f}%")
 with open("latest_accuracy.txt", "w") as f:
     f.write(f"{accuracy*100:.2f}")
 # -----------------------------------------------
+
+total_end = time.time()
+print(f"\nTotal Waktu Eksekusi Script: {total_end - total_start:.2f} detik.")
