@@ -5,7 +5,9 @@ import mediapipe as mp
 import tensorflow as tf
 import time
 import requests
+import socket
 from requests.exceptions import ConnectionError
+from zeroconf import ServiceBrowser, Zeroconf
 
 # --- KONFIGURASI UTAMA ---
 USE_VIDEO_FILE = False
@@ -13,13 +15,63 @@ VIDEO_PATH = 'video_testing.mp4'
 COOLDOWN_DURATION = 1.5         
 POST_COMMAND_COOLDOWN = 3.0     
 
-# --- DEFINISI IP ADDRESS ESP ---
-ESP1_IP = "10.141.159.149"  # <-- IP ESP 1 (Device 1)
-ESP2_IP = "10.141.159.103"  # <-- IP ESP 2 (Device 2)
+# IP Default (Hanya dipakai jika Auto-Discovery gagal)
+ESP1_IP = "0.0.0.0" 
+ESP2_IP = "0.0.0.0" 
 
-# ---------------------------------------------
+# ==========================================
+# --- BAGIAN AUTO-DISCOVERY (ZEROCONF) ---
+# ==========================================
+class DeviceListener:
+    def __init__(self):
+        self.devices = {}
 
-print(f"Konfigurasi: Device 1 @ {ESP1_IP}, Device 2 @ {ESP2_IP}")
+    def remove_service(self, zeroconf, type, name):
+        pass
+
+    def update_service(self, zeroconf, type, name):
+        pass
+
+    def add_service(self, zeroconf, type, name):
+        info = zeroconf.get_service_info(type, name)
+        if info:
+            # Decode properties
+            props = {k.decode('utf-8'): v.decode('utf-8') for k, v in info.properties.items()}
+            
+            # Filter hanya perangkat kita 'gesture-iot'
+            if props.get('type') == 'gesture-iot':
+                address = socket.inet_ntoa(info.addresses[0])
+                dev_id = props.get('id')
+                print(f"   -> Ditemukan: Perangkat {dev_id} di {address}")
+                self.devices[dev_id] = address
+
+def find_esp_devices():
+    print("\n📡 Memindai jaringan mencari ESP8266 (5 detik)...")
+    zeroconf = Zeroconf()
+    listener = DeviceListener()
+    browser = ServiceBrowser(zeroconf, "_http._tcp.local.", listener)
+    
+    time.sleep(5) # Waktu tunggu scanning
+    zeroconf.close()
+    return listener.devices
+
+# --- EKSEKUSI PENCARIAN DI AWAL ---
+found_devices = find_esp_devices()
+
+if '1' in found_devices:
+    ESP1_IP = found_devices['1']
+    print(f"✅ ESP 1 Terhubung: {ESP1_IP}")
+else:
+    print("⚠️  ESP 1 TIDAK DITEMUKAN (Cek power/koneksi)")
+
+if '2' in found_devices:
+    ESP2_IP = found_devices['2']
+    print(f"✅ ESP 2 Terhubung: {ESP2_IP}")
+else:
+    print("⚠️  ESP 2 TIDAK DITEMUKAN (Cek power/koneksi)")
+
+print("-" * 40)
+# ==========================================
 
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
@@ -44,13 +96,16 @@ input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
 
-# --- [PERUBAHAN 2] MODIFIKASI FUNGSI KIRIM ---
-# Sekarang fungsi ini butuh parameter 'target_ip'
+# --- MODIFIKASI FUNGSI KIRIM ---
 def send_command(command, target_ip):
-    # Buat URL dinamis berdasarkan IP target
+    # Cek validasi IP sebelum kirim
+    if target_ip == "0.0.0.0":
+        print(f"❌ Error: IP Target belum terdeteksi. Tidak bisa kirim perintah {command}.")
+        return
+
     url = f"http://{target_ip}/{command}" 
     try:
-        response = requests.get(url, timeout=2.0) # Timeout disesuaikan
+        response = requests.get(url, timeout=2.0)
         if response.status_code == 200:
             print(f"BERHASIL MENGIRIM ke {target_ip}: Perintah {command}")
         else:
@@ -124,7 +179,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
                 temp_action = actions[np.argmax(prediction)]
 
         # =====================================================
-        # LOGIKA STATE MACHINE DENGAN DUAL ESP
+        # LOGIKA STATE MACHINE DENGAN DYNAMIC IP
         # =====================================================
         
         current_time_for_logic = time.time()
@@ -135,33 +190,41 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
 
         if temp_action != '...' and not in_cooldown:
             
-            # 1. JIKA MENUNGGU SELEKSI PERANGKAT (State Aktif)
             if current_action_state is not None:
                 if temp_action in SELECTION_GESTURES:
                     
-                    # --- ROUTING KE IP YANG BENAR ---
+                    # --- ROUTING DINAMIS ---
+                    target_esp_ip = "0.0.0.0"
+                    device_name = ""
+                    cmd = ""
+
                     if temp_action in ['close_to_one', 'open_to_one']:
-                        # DEVICE 1 -> Kirim ke ESP1_IP
+                        target_esp_ip = ESP1_IP
+                        device_name = "PERANGKAT 1"
                         cmd = '11' if current_action_state == 'AKSI_ON' else '10'
-                        print(f"PERINTAH: PERANGKAT 1 (IP: {ESP1_IP}) -> {current_action_state}")
-                        send_command(cmd, ESP1_IP) # <-- Pakai IP ESP 1
                     
                     elif temp_action in ['close_to_two', 'open_to_two']:
-                        # DEVICE 2 -> Kirim ke ESP2_IP
+                        target_esp_ip = ESP2_IP
+                        device_name = "PERANGKAT 2"
                         cmd = '21' if current_action_state == 'AKSI_ON' else '20'
-                        print(f"PERINTAH: PERANGKAT 2 (IP: {ESP2_IP}) -> {current_action_state}")
-                        send_command(cmd, ESP2_IP) # <-- Pakai IP ESP 2
-                    # ----------------------------------------------
                     
-                    final_command_sent = True 
-                    last_valid_time = current_time_for_logic 
-                    current_cooldown_limit = POST_COMMAND_COOLDOWN 
-                    print(f"SISTEM ISTIRAHAT {POST_COMMAND_COOLDOWN} DETIK (Silakan reset tangan Anda)")
-                
+                    # (Opsional) Tambahkan Device 3 & 4 jika ada di masa depan
+                    
+                    # Eksekusi jika IP Valid
+                    if target_esp_ip != "0.0.0.0":
+                        print(f"PERINTAH: {device_name} (IP: {target_esp_ip}) -> {current_action_state}")
+                        send_command(cmd, target_esp_ip)
+                        
+                        final_command_sent = True 
+                        last_valid_time = current_time_for_logic 
+                        current_cooldown_limit = POST_COMMAND_COOLDOWN 
+                        print(f"SISTEM ISTIRAHAT {POST_COMMAND_COOLDOWN} DETIK (Silakan reset tangan Anda)")
+                    else:
+                        print(f"❌ Error: {device_name} tidak ditemukan saat scanning awal.")
+
                 elif temp_action in ACTION_GESTURES:
                     pass 
 
-            # 2. JIKA MENUNGGU GESTUR AKSI (SAMA SEPERTI SEBELUMNYA)
             else:
                 if temp_action in ACTION_GESTURES:
                     if temp_action == 'close_to_open_palm':
@@ -196,7 +259,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
         cv2.putText(image, state_text, (15, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
         cv2.putText(image, f'GESTUR: {temp_action}', (15, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-        cv2.imshow('WIFI Control (Dual ESP)', image)
+        cv2.imshow('WIFI Control (Auto-Discovery)', image)
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
