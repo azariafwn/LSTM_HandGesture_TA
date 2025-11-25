@@ -35,8 +35,8 @@ input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
 
-# --- DEFINISI GESTUR (6 KELAS) ---
-actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three'])
+# --- DEFINISI GESTUR (8 KELAS) ---
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
 
 sequence = []
 current_action = '...'

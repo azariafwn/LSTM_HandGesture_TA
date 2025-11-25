@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 # --- PENGATURAN ---
 DATA_PATH = os.path.join('MP_Data')
 KEYPOINTS_PATH = os.path.join('Keypoints_Data')
-actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three'])
+actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
 sequence_length = 30
 
 # --- FUNGSI WORKER (Modifikasi: Import dipindah ke sini) ---
