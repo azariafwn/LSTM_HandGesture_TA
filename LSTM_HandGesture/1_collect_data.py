@@ -11,11 +11,12 @@ mp_drawing = mp.solutions.drawing_utils
 
 # --- PENGATURAN UTAMA (TETAP SAMA) ---
 DATA_PATH = os.path.join('MP_Data') 
-# actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three'])
+# actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
 # actions = np.array(['close_to_open_palm', 'open_to_close_palm'])
 # actions = np.array(['close_to_one', 'open_to_one'])
 # actions = np.array(['close_to_two', 'open_to_two'])
-actions = np.array(['close_to_three', 'open_to_three'])
+# actions = np.array(['close_to_three', 'open_to_three'])
+actions = np.array(['close_to_four', 'open_to_four'])
 
 no_sequences_to_add = 20
 sequence_length = 30
