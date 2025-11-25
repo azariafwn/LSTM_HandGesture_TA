@@ -18,3 +18,8 @@ Keypoints_Data/
 # File sistem operasi
 .DS_Store
 Thumbs.db
+
+# Arduino temporary files
+*.hex
+*.elf
+*.bin
