@@ -52,10 +52,9 @@ def process_single_sequence(args):
             return f"❌ {action}/{sequence} GAGAL (Frame error)"
 
 def main():
-    # Fix untuk Windows agar tidak berebut resource saat start
-    # Kita batasi worker agar tidak membuat PC freeze total jika RAM ngepas
-    # os.cpu_count() - 2 artinya menyisakan 2 core untuk OS agar tidak lag
-    max_workers = 4 
+    # Batasi worker agar tidak membuat PC freeze total kalo RAM ngepas
+    # max_workers = 4 
+    max_workers = 8 
 
     print("Memvalidasi folder...")
     tasks = []
