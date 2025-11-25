@@ -1,5 +1,5 @@
 # Gunakan base image Python yang kompatibel dengan ARM64 (Debian Bookworm, sama seperti RPi OS)
-FROM --platform=linux/arm64 python:3.11-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 # Tetapkan direktori kerja di dalam container
 WORKDIR /app
