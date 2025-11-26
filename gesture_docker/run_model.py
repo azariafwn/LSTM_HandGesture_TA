@@ -19,7 +19,7 @@ POST_COMMAND_COOLDOWN = 3.0
 STATE_TIMEOUT = 5 
 PREDICTION_THRESHOLD = 0.97
 
-# IP Default (Hanya placeholder, akan diisi Auto-Discovery)
+# IP Default (Placeholder, akan diisi Auto-Discovery)
 ESP1_IP = "0.0.0.0" 
 ESP2_IP = "0.0.0.0" 
 
@@ -39,11 +39,22 @@ class DeviceListener:
         pass
 
     def add_service(self, zeroconf, type, name):
-        info = zeroconf.get_service_info(type, name)
-        if info:
-            try:
-                # Decode properties
-                props = {k.decode('utf-8'): v.decode('utf-8') for k, v in info.properties.items()}
+        try:
+            info = zeroconf.get_service_info(type, name)
+            if info:
+                # --- [FIX] Safe Decoding Logic ---
+                props = {}
+                for k, v in info.properties.items():
+                    try:
+                        key_str = k.decode('utf-8') if isinstance(k, bytes) else str(k)
+                        if v is not None:
+                            val_str = v.decode('utf-8') if isinstance(v, bytes) else str(v)
+                        else:
+                            val_str = ""
+                        props[key_str] = val_str
+                    except Exception:
+                        continue 
+                # ---------------------------------
                 
                 # Filter hanya perangkat kita 'gesture-iot'
                 if props.get('type') == 'gesture-iot':
@@ -51,8 +62,8 @@ class DeviceListener:
                     dev_id = props.get('id')
                     print(f"   -> 🔍 Ditemukan: Perangkat {dev_id} di {address}")
                     self.devices[dev_id] = address
-            except Exception as e:
-                print(f"   [Warning] Gagal parse service: {e}")
+        except Exception as e:
+            print(f"   [Info] Skip perangkat asing: {name} ({e})")
 
 def find_esp_devices():
     print("\n📡 Memindai jaringan mencari ESP8266 (5 detik)...")
@@ -126,7 +137,6 @@ def send_command(command, target_ip):
         print(f"❌ [ERROR] Gagal koneksi ke ESP di {target_ip}") 
 
 # --- DEFINISI GESTUR ---
-# (Sesuaikan urutan ini SAMA PERSIS dengan saat training)
 actions = np.array([
     'close_to_open_palm', 'open_to_close_palm', 
     'close_to_one', 'open_to_one', 
@@ -178,7 +188,7 @@ try:
 
             image, results = mediapipe_detection(frame, holistic)
 
-            # Gambar landmark (Opsional, matikan jika ingin performa maksimal)
+            # Gambar landmark (Opsional)
             if results.right_hand_landmarks:
                 mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
 
@@ -228,7 +238,7 @@ try:
                             device_name = "PERANGKAT 2"
                             cmd = '21' if current_action_state == 'AKSI_ON' else '20'
                         
-                        # Tambahkan logika untuk Device 3 & 4 jika nanti ada
+                        # Jika nanti ada Device 3 atau 4, tambahkan di sini
                         
                         if target_esp_ip != "0.0.0.0":
                             print(f"📡 PERINTAH: {device_name} (IP: {target_esp_ip}) -> {current_action_state}")
@@ -266,7 +276,6 @@ try:
                 current_action_state = None
 
             # --- TAMPILAN VISUAL ---
-            # (Hanya akan muncul jika Anda menjalankan container dengan akses display/xhost)
             if in_cooldown:
                 remaining = current_cooldown_limit - time_since_last
                 status_msg = "RESET TANGAN!" if remaining > 2.0 else "JEDA..."
