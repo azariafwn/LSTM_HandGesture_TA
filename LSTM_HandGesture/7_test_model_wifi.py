@@ -12,8 +12,8 @@ from zeroconf import ServiceBrowser, Zeroconf
 # --- KONFIGURASI UTAMA ---
 USE_VIDEO_FILE = False
 VIDEO_PATH = 'video_testing.mp4'
-COOLDOWN_DURATION = 1.5         
-POST_COMMAND_COOLDOWN = 3.0     
+COOLDOWN_DURATION = 2         
+POST_COMMAND_COOLDOWN = 4.0     
 
 # IP Default (Hanya dipakai jika Auto-Discovery gagal)
 ESP1_IP = "0.0.0.0" 
@@ -33,17 +33,35 @@ class DeviceListener:
         pass
 
     def add_service(self, zeroconf, type, name):
-        info = zeroconf.get_service_info(type, name)
-        if info:
-            # Decode properties
-            props = {k.decode('utf-8'): v.decode('utf-8') for k, v in info.properties.items()}
-            
-            # Filter hanya perangkat kita 'gesture-iot'
-            if props.get('type') == 'gesture-iot':
-                address = socket.inet_ntoa(info.addresses[0])
-                dev_id = props.get('id')
-                print(f"   -> Ditemukan: Perangkat {dev_id} di {address}")
-                self.devices[dev_id] = address
+        try:
+            info = zeroconf.get_service_info(type, name)
+            if info:
+                # --- PERBAIKAN DI SINI (Safe Decoding) ---
+                props = {}
+                for k, v in info.properties.items():
+                    try:
+                        # Decode Key
+                        key_str = k.decode('utf-8') if isinstance(k, bytes) else str(k)
+                        # Decode Value (Cek jika None!)
+                        if v is not None:
+                            val_str = v.decode('utf-8') if isinstance(v, bytes) else str(v)
+                        else:
+                            val_str = "" # Jika None, anggap string kosong
+                        
+                        props[key_str] = val_str
+                    except Exception:
+                        continue # Skip properti yang error, jangan crash
+                # -----------------------------------------
+                
+                # Filter hanya perangkat kita 'gesture-iot'
+                if props.get('type') == 'gesture-iot':
+                    address = socket.inet_ntoa(info.addresses[0])
+                    dev_id = props.get('id')
+                    print(f"   -> Ditemukan: Perangkat {dev_id} di {address}")
+                    self.devices[dev_id] = address
+        except Exception as e:
+            # Tangkap error apapun agar scanning tidak berhenti
+            print(f"   [Info] Skip perangkat asing: {name} ({e})")
 
 def find_esp_devices():
     print("\n📡 Memindai jaringan mencari ESP8266 (5 detik)...")
