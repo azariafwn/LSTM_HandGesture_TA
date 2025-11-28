@@ -12,12 +12,14 @@ from zeroconf import ServiceBrowser, Zeroconf
 # --- KONFIGURASI UTAMA ---
 USE_VIDEO_FILE = False
 VIDEO_PATH = 'video_testing.mp4'
-COOLDOWN_DURATION = 2         
+COOLDOWN_DURATION = 1.5         
 POST_COMMAND_COOLDOWN = 4.0     
 
-# IP Default (Hanya dipakai jika Auto-Discovery gagal)
+# --- [PERUBAHAN 1] Tambah Variabel IP Default untuk 4 ESP ---
 ESP1_IP = "0.0.0.0" 
 ESP2_IP = "0.0.0.0" 
+ESP3_IP = "0.0.0.0" # Baru
+ESP4_IP = "0.0.0.0" # Baru
 
 # ==========================================
 # --- BAGIAN AUTO-DISCOVERY (ZEROCONF) ---
@@ -36,31 +38,24 @@ class DeviceListener:
         try:
             info = zeroconf.get_service_info(type, name)
             if info:
-                # --- PERBAIKAN DI SINI (Safe Decoding) ---
                 props = {}
                 for k, v in info.properties.items():
                     try:
-                        # Decode Key
                         key_str = k.decode('utf-8') if isinstance(k, bytes) else str(k)
-                        # Decode Value (Cek jika None!)
                         if v is not None:
                             val_str = v.decode('utf-8') if isinstance(v, bytes) else str(v)
                         else:
-                            val_str = "" # Jika None, anggap string kosong
-                        
+                            val_str = ""
                         props[key_str] = val_str
                     except Exception:
-                        continue # Skip properti yang error, jangan crash
-                # -----------------------------------------
+                        continue 
                 
-                # Filter hanya perangkat kita 'gesture-iot'
                 if props.get('type') == 'gesture-iot':
                     address = socket.inet_ntoa(info.addresses[0])
                     dev_id = props.get('id')
                     print(f"   -> Ditemukan: Perangkat {dev_id} di {address}")
                     self.devices[dev_id] = address
         except Exception as e:
-            # Tangkap error apapun agar scanning tidak berhenti
             print(f"   [Info] Skip perangkat asing: {name} ({e})")
 
 def find_esp_devices():
@@ -69,24 +64,37 @@ def find_esp_devices():
     listener = DeviceListener()
     browser = ServiceBrowser(zeroconf, "_http._tcp.local.", listener)
     
-    time.sleep(5) # Waktu tunggu scanning
+    time.sleep(5) 
     zeroconf.close()
     return listener.devices
 
 # --- EKSEKUSI PENCARIAN DI AWAL ---
 found_devices = find_esp_devices()
 
+# --- [PERUBAHAN 2] Cek IP untuk 4 Perangkat ---
 if '1' in found_devices:
     ESP1_IP = found_devices['1']
     print(f"✅ ESP 1 Terhubung: {ESP1_IP}")
 else:
-    print("⚠️  ESP 1 TIDAK DITEMUKAN (Cek power/koneksi)")
+    print("⚠️  ESP 1 TIDAK DITEMUKAN")
 
 if '2' in found_devices:
     ESP2_IP = found_devices['2']
     print(f"✅ ESP 2 Terhubung: {ESP2_IP}")
 else:
-    print("⚠️  ESP 2 TIDAK DITEMUKAN (Cek power/koneksi)")
+    print("⚠️  ESP 2 TIDAK DITEMUKAN")
+
+if '3' in found_devices:
+    ESP3_IP = found_devices['3']
+    print(f"✅ ESP 3 Terhubung: {ESP3_IP}")
+else:
+    print("⚠️  ESP 3 TIDAK DITEMUKAN")
+
+if '4' in found_devices:
+    ESP4_IP = found_devices['4']
+    print(f"✅ ESP 4 Terhubung: {ESP4_IP}")
+else:
+    print("⚠️  ESP 4 TIDAK DITEMUKAN")
 
 print("-" * 40)
 # ==========================================
@@ -114,9 +122,7 @@ input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 print("Model TFLite berhasil dimuat.")
 
-# --- MODIFIKASI FUNGSI KIRIM ---
 def send_command(command, target_ip):
-    # Cek validasi IP sebelum kirim
     if target_ip == "0.0.0.0":
         print(f"❌ Error: IP Target belum terdeteksi. Tidak bisa kirim perintah {command}.")
         return
@@ -131,18 +137,30 @@ def send_command(command, target_ip):
     except (ConnectionError, requests.exceptions.Timeout):
         print(f"Peringatan: Gagal koneksi ke ESP di {target_ip} ({command})") 
 
-# --- DEFINISI GESTUR ---
-actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
+# --- [PERUBAHAN 3] Update Daftar Gestur ---
+# Pastikan urutan ini SAMA PERSIS dengan urutan saat training model!
+actions = np.array([
+    'close_to_open_palm', 'open_to_close_palm', 
+    'close_to_one', 'open_to_one', 
+    'close_to_two', 'open_to_two', 
+    'close_to_three', 'open_to_three', 
+    'close_to_four', 'open_to_four'
+])
 
 ACTION_GESTURES = ['close_to_open_palm', 'open_to_close_palm']
-SELECTION_GESTURES = ['close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four']
+# Tambahkan gestur seleksi untuk 3 dan 4
+SELECTION_GESTURES = [
+    'close_to_one', 'open_to_one', 
+    'close_to_two', 'open_to_two', 
+    'close_to_three', 'open_to_three', 
+    'close_to_four', 'open_to_four'
+]
 
 sequence = []
 current_action_state = None 
 last_action_time = 0
 STATE_TIMEOUT = 5 
 
-# --- TIMER ---
 last_valid_time = 0 
 current_cooldown_limit = COOLDOWN_DURATION
 PREDICTION_THRESHOLD = 0.97
@@ -197,7 +215,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
                 temp_action = actions[np.argmax(prediction)]
 
         # =====================================================
-        # LOGIKA STATE MACHINE DENGAN DYNAMIC IP
+        # LOGIKA STATE MACHINE 4 DEVICES
         # =====================================================
         
         current_time_for_logic = time.time()
@@ -211,24 +229,36 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
             if current_action_state is not None:
                 if temp_action in SELECTION_GESTURES:
                     
-                    # --- ROUTING DINAMIS ---
+                    # --- [PERUBAHAN 4] ROUTING KE 4 DEVICES ---
                     target_esp_ip = "0.0.0.0"
                     device_name = ""
                     cmd = ""
 
+                    # --- Device 1 ---
                     if temp_action in ['close_to_one', 'open_to_one']:
                         target_esp_ip = ESP1_IP
                         device_name = "PERANGKAT 1"
                         cmd = '11' if current_action_state == 'AKSI_ON' else '10'
                     
+                    # --- Device 2 ---
                     elif temp_action in ['close_to_two', 'open_to_two']:
                         target_esp_ip = ESP2_IP
                         device_name = "PERANGKAT 2"
                         cmd = '21' if current_action_state == 'AKSI_ON' else '20'
                     
-                    # (Opsional) Tambahkan Device 3 & 4 jika ada di masa depan
+                    # --- Device 3 (BARU) ---
+                    elif temp_action in ['close_to_three', 'open_to_three']:
+                        target_esp_ip = ESP3_IP
+                        device_name = "PERANGKAT 3"
+                        cmd = '31' if current_action_state == 'AKSI_ON' else '30'
+
+                    # --- Device 4 (BARU) ---
+                    elif temp_action in ['close_to_four', 'open_to_four']:
+                        target_esp_ip = ESP4_IP
+                        device_name = "PERANGKAT 4"
+                        cmd = '41' if current_action_state == 'AKSI_ON' else '40'
                     
-                    # Eksekusi jika IP Valid
+                    # Eksekusi
                     if target_esp_ip != "0.0.0.0":
                         print(f"PERINTAH: {device_name} (IP: {target_esp_ip}) -> {current_action_state}")
                         send_command(cmd, target_esp_ip)
@@ -277,7 +307,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
         cv2.putText(image, state_text, (15, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
         cv2.putText(image, f'GESTUR: {temp_action}', (15, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-        cv2.imshow('WIFI Control (Auto-Discovery)', image)
+        cv2.imshow('WIFI Control (4 Devices)', image)
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
