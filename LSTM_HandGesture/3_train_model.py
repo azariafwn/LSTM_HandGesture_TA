@@ -6,6 +6,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+import matplotlib.pyplot as plt
 
 total_start = time.time()
 
@@ -102,3 +103,46 @@ with open("latest_accuracy.txt", "w") as f:
 
 total_end = time.time()
 print(f"\nTotal Waktu Eksekusi Script: {total_end - total_start:.2f} detik.")
+
+# ... (Kode di atas tetap sama) ...
+
+total_end = time.time()
+print(f"\nTotal Waktu Eksekusi Script: {total_end - total_start:.2f} detik.")
+
+# ==========================================
+# --- BAGIAN VISUALISASI GRAFIK (BARU) ---
+# ==========================================
+print("\nMembuat grafik riwayat training...")
+
+# Ambil data dari history
+acc = history.history['categorical_accuracy']
+val_acc = history.history['val_categorical_accuracy']
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+epochs_range = range(1, len(acc) + 1) # Membuat sumbu X sesuai jumlah epoch asli
+
+# --- GRAFIK 1: AKURASI ---
+plt.figure(figsize=(10, 6))
+plt.plot(epochs_range, acc, label='Training Accuracy')
+plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+plt.title('Grafik Akurasi Model (Training vs Validation)')
+plt.xlabel('Epoch')
+plt.ylabel('Akurasi')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.savefig('grafik_akurasi.png') # Simpan otomatis
+print("✅ Grafik Akurasi disimpan sebagai 'grafik_akurasi.png'")
+plt.close() # Tutup plot agar tidak menumpuk
+
+# --- GRAFIK 2: LOSS ---
+plt.figure(figsize=(10, 6))
+plt.plot(epochs_range, loss, label='Training Loss')
+plt.plot(epochs_range, val_loss, label='Validation Loss')
+plt.title('Grafik Loss Model (Training vs Validation)')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.savefig('grafik_loss.png') # Simpan otomatis
+print("✅ Grafik Loss disimpan sebagai 'grafik_loss.png'")
+plt.close()
