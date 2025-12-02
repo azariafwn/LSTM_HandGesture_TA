@@ -43,7 +43,7 @@ ESP4_IP = "0.0.0.0"
 
 print("🚀 [INFO] Memulai Sistem Gesture Control + DATA LOGGING...")
 
-# --- BAGIAN AUTO-DISCOVERY (SAMA SEPERTI SEBELUMNYA) ---
+# --- BAGIAN AUTO-DISCOVERY ---
 class DeviceListener:
     def __init__(self):
         self.devices = {}
@@ -105,19 +105,17 @@ output_details = interpreter.get_output_details()
 
 # --- FUNGSI KIRIM DENGAN PENGUKURAN LATENSI ---
 def send_command(command, target_ip):
-    if target_ip == "0.0.0.0": return 0 # Return 0 ms jika gagal
+    if target_ip == "0.0.0.0": return 0 
 
     url = f"http://{target_ip}/{command}" 
     try:
-        # UKUR LATENSI WIFI
         start_net = time.time()
         response = requests.get(url, timeout=2.0) 
         end_net = time.time()
         
         latency_ms = (end_net - start_net) * 1000
-        
-        # Format Timestamp untuk Laporan (Bab 4.6)
         now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        
         if response.status_code == 200:
             print(f"[{now}] 📡 HTTP OK dari {target_ip} (Latensi: {latency_ms:.1f}ms)")
             return latency_ms
@@ -149,12 +147,10 @@ fps = 0
 
 with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=0.7) as holistic:
     while cap.isOpened():
-        # --- UKUR FPS ---
         curr_time = time.time()
         fps = 1 / (curr_time - prev_time) if prev_time > 0 else 0
         prev_time = curr_time
         
-        # Mulai ukur Edge Latency (Processing Time)
         start_edge = time.time()
 
         ret, frame = cap.read()
@@ -176,14 +172,12 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
             if np.max(prediction) > PREDICTION_THRESHOLD:
                 temp_action = actions[np.argmax(prediction)]
 
-        # Hitung waktu selesai pemrosesan AI
         end_edge = time.time()
         edge_latency_ms = (end_edge - start_edge) * 1000
 
-        # Logika State Machine
         current_time_for_logic = time.time()
         final_command_sent = False 
-        wifi_latency_ms = 0 # Default 0
+        wifi_latency_ms = 0 
 
         time_since_last = current_time_for_logic - last_valid_time
         in_cooldown = time_since_last < current_cooldown_limit
@@ -194,23 +188,18 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
                     target_esp_ip = "0.0.0.0"
                     cmd = ""
                     
-                    # Logic Mapping (Sederhana untuk logging)
-                    if 'one' in temp_action: target_esp_ip = ESP1_IP; cmd = '11' if 'open' in temp_action else '10' # Contoh simple logic
+                    if 'one' in temp_action: target_esp_ip = ESP1_IP; cmd = '11' if 'open' in temp_action else '10'
                     elif 'two' in temp_action: target_esp_ip = ESP2_IP; cmd = '21' if 'open' in temp_action else '20'
                     elif 'three' in temp_action: target_esp_ip = ESP3_IP; cmd = '31' if 'open' in temp_action else '30'
                     elif 'four' in temp_action: target_esp_ip = ESP4_IP; cmd = '41' if 'open' in temp_action else '40'
                     
-                    # Perbaikan logic ON/OFF sesuai state
                     real_cmd = cmd[0] + ('1' if current_action_state == 'AKSI_ON' else '0')
 
                     if target_esp_ip != "0.0.0.0":
                         now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
                         print(f"[{now}] 🎯 Gestur {temp_action} terdeteksi. Mengirim ke {target_esp_ip}...")
                         
-                        # KIRIM DAN CATAT LATENSI WIFI
                         wifi_latency_ms = send_command(real_cmd, target_esp_ip)
-                        
-                        # LOG DATA KE CSV (Hanya saat ada aksi kirim)
                         total_latency = edge_latency_ms + wifi_latency_ms
                         log_to_csv("COMMAND_SENT", fps, edge_latency_ms, wifi_latency_ms, total_latency)
 
@@ -235,14 +224,36 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
             current_action_state = None
         if final_command_sent: current_action_state = None
 
-        # Print FPS Log Rutin (untuk Screenshot 4.5)
-        # Print setiap 30 frame agar tidak spam
+        # Print FPS Log Rutin (untuk Terminal)
         if int(curr_time * 10) % 30 == 0: 
-            print(f"Inference time: {edge_latency_ms:.1f}ms | FPS: {fps:.1f}")
+             print(f"Inference time: {edge_latency_ms:.1f}ms | FPS: {fps:.1f}")
 
-        # Tampilan (Jika ada monitor)
-        cv2.putText(image, f"FPS: {fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.imshow('Raspi Gesture', image)
+        # ===============================================
+        # --- TAMPILAN VISUAL DI LAYAR (RESTORED) ---
+        # ===============================================
+        
+        # 1. Status Cooldown / Kesiapan
+        if in_cooldown:
+            remaining = current_cooldown_limit - time_since_last
+            status_msg = "RESET TANGAN!" if remaining > 2.0 else "JEDA..."
+            color = (0, 255, 255) if remaining > 2.0 else (0, 165, 255)
+            cv2.putText(image, f"{status_msg} ({remaining:.1f}s)", (15, 200), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
+        else:
+            cv2.putText(image, "SIAP", (15, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+        
+        # 2. Status State Machine (ON/OFF/Menunggu)
+        state_text = f'STATE: {current_action_state}' if current_action_state else 'STATE: Menunggu'
+        cv2.putText(image, state_text, (15, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+        
+        # 3. Gestur yang terdeteksi saat ini
+        cv2.putText(image, f'GESTUR: {temp_action}', (15, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+        # 4. FPS di Pojok Kanan Atas
+        cv2.putText(image, f'FPS: {int(fps)}', (image.shape[1] - 150, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+
+        cv2.imshow('Raspi Gesture Control', image)
         if cv2.waitKey(10) & 0xFF == ord('q'): break
 
 cap.release()
