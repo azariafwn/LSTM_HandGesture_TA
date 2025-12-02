@@ -14,7 +14,13 @@ from zeroconf import ServiceBrowser, Zeroconf
 # ==========================================
 # --- KONFIGURASI PENGUKURAN DATA ---
 # ==========================================
-LOG_FILE = "data_skripsi.csv"
+import os
+
+OUTPUT_DIR = "logs_output"
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+LOG_FILE = os.path.join(OUTPUT_DIR, "data_skripsi.csv")
 
 # Buat header CSV jika file belum ada
 if not os.path.exists(LOG_FILE):
