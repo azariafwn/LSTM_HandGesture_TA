@@ -10,8 +10,8 @@ const char* password = "12345678";
 // ESP 2 -> "perangkat-2"
 // const char* hostName = "perangkat-1"; 
 // const char* hostName = "perangkat-2"; 
-// const char* hostName = "perangkat-3"; 
-const char* hostName = "perangkat-4"; 
+const char* hostName = "perangkat-3"; 
+// const char* hostName = "perangkat-4"; 
 
 ESP8266WebServer server(80);
 const int relayPin = D1; 
@@ -19,7 +19,8 @@ const int relayPin = D1;
 // --- Handler Nyala (Universal) ---
 // Fungsi ini akan dipanggil baik oleh perintah "11" maupun "21"
 void handleRelayON() {
-  digitalWrite(relayPin, LOW); // Nyalakan Relay (Active LOW)
+  // digitalWrite(relayPin, LOW); // Nyalakan Relay (Active LOW)
+  digitalWrite(relayPin, HIGH); // Nyalakan Relay (Active HIGH)
   server.send(200, "text/plain", "Relay ON");
   Serial.println("Relay dinyalakan.");
 }
@@ -27,7 +28,8 @@ void handleRelayON() {
 // --- Handler Mati (Universal) ---
 // Fungsi ini akan dipanggil baik oleh perintah "10" maupun "20"
 void handleRelayOFF() {
-  digitalWrite(relayPin, HIGH); // Matikan Relay
+  // digitalWrite(relayPin, HIGH); // Matikan Relay
+  digitalWrite(relayPin, LOW); // Matikan Relay
   server.send(200, "text/plain", "Relay OFF");
   Serial.println("Relay dimatikan.");
 }
@@ -40,7 +42,7 @@ void handleRoot() {
 void setup() {
   Serial.begin(9600);
   pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, HIGH);
+  digitalWrite(relayPin, LOW); //default awal mati
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -59,8 +61,8 @@ void setup() {
     MDNS.addServiceTxt("http", "tcp", "type", "gesture-iot"); // Tag khusus kita
     // MDNS.addServiceTxt("http", "tcp", "id", "1"); // ID perangkat 
     // MDNS.addServiceTxt("http", "tcp", "id", "2"); // ID perangkat 
-    // MDNS.addServiceTxt("http", "tcp", "id", "3"); // ID perangkat 
-    MDNS.addServiceTxt("http", "tcp", "id", "4"); // ID perangkat
+    MDNS.addServiceTxt("http", "tcp", "id", "3"); // ID perangkat 
+    // MDNS.addServiceTxt("http", "tcp", "id", "4"); // ID perangkat
   } else {
     Serial.println("Error setting up MDNS responder!");
   }

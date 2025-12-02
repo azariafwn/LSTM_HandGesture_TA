@@ -23,8 +23,9 @@ sequence_length = 30
 # --- AKHIR PENGATURAN ---
 
 os.makedirs(DATA_PATH, exist_ok=True)
-cap = cv2.VideoCapture(0) # Gunakan kamera default
-# cap = cv2.VideoCapture(2) # Gunakan kamera eksternal
+# cap = cv2.VideoCapture(0, cv2.CAP_DSHOW) # Gunakan kamera default
+cap = cv2.VideoCapture(1, cv2.CAP_DSHOW) # Gunakan kamera eksternal
+# cap = cv2.VideoCapture(2, cv2.CAP_DSHOW) # Gunakan kamera eksternal
 if not cap.isOpened():
     print("Error: Tidak bisa membuka kamera.")
     exit()
@@ -58,7 +59,7 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
             cv2.putText(debug_image, "Tekan 'S' untuk Mulai...", (120, 400), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-            cv2.imshow('OpenCV Feed', debug_image) # Tampilkan gambar dengan landmark
+            cv2.imshow('Collect Gesture Data', debug_image) # Tampilkan gambar dengan landmark
             
             if cv2.waitKey(10) & 0xFF == ord('s'):
                 break
@@ -79,7 +80,7 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
                         
                 cv2.putText(debug_image, f'Video #{sequence}. Siap dalam {i} detik...', (15, 40), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
-                cv2.imshow('OpenCV Feed', debug_image)
+                cv2.imshow('Collect Gesture Data', debug_image)
                 cv2.waitKey(1000)
 
             for frame_num in range(sequence_length):
@@ -96,7 +97,7 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
 
                 cv2.putText(debug_image, f'MEREKAM GESTUR: {action} | Video: {sequence} | Frame: {frame_num}', (15,12), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
-                cv2.imshow('OpenCV Feed', debug_image)
+                cv2.imshow('Collect Gesture Data', debug_image)
                 
                 # --- PENTING: Yang disimpan adalah 'frame' asli, bukan 'debug_image' ---
                 frame_path = os.path.join(sequence_path, f"{frame_num}.jpg")

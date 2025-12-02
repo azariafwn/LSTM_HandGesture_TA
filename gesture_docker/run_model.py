@@ -19,11 +19,13 @@ POST_COMMAND_COOLDOWN = 3.0
 STATE_TIMEOUT = 5 
 PREDICTION_THRESHOLD = 0.97
 
-# IP Default (Placeholder, akan diisi Auto-Discovery)
+# --- IP Default untuk 4 ESP ---
 ESP1_IP = "0.0.0.0" 
 ESP2_IP = "0.0.0.0" 
+ESP3_IP = "0.0.0.0" 
+ESP4_IP = "0.0.0.0" 
 
-print("🚀 [INFO] Memulai Sistem Gesture Control (Auto-Discovery Mode)...")
+print("🚀 [INFO] Memulai Sistem Gesture Control (Auto-Discovery Mode - 4 Devices)...")
 
 # ==========================================
 # --- BAGIAN AUTO-DISCOVERY (ZEROCONF) ---
@@ -42,7 +44,7 @@ class DeviceListener:
         try:
             info = zeroconf.get_service_info(type, name)
             if info:
-                # --- [FIX] Safe Decoding Logic ---
+                # --- Safe Decoding Logic ---
                 props = {}
                 for k, v in info.properties.items():
                     try:
@@ -54,9 +56,8 @@ class DeviceListener:
                         props[key_str] = val_str
                     except Exception:
                         continue 
-                # ---------------------------------
+                # ---------------------------
                 
-                # Filter hanya perangkat kita 'gesture-iot'
                 if props.get('type') == 'gesture-iot':
                     address = socket.inet_ntoa(info.addresses[0])
                     dev_id = props.get('id')
@@ -71,24 +72,37 @@ def find_esp_devices():
     listener = DeviceListener()
     browser = ServiceBrowser(zeroconf, "_http._tcp.local.", listener)
     
-    time.sleep(5) # Waktu tunggu scanning
+    time.sleep(5) 
     zeroconf.close()
     return listener.devices
 
 # --- EKSEKUSI PENCARIAN DI AWAL ---
 found_devices = find_esp_devices()
 
+# Cek 4 Perangkat
 if '1' in found_devices:
     ESP1_IP = found_devices['1']
     print(f"✅ ESP 1 Terhubung: {ESP1_IP}")
 else:
-    print("⚠️  ESP 1 TIDAK DITEMUKAN (Cek power/koneksi)")
+    print("⚠️  ESP 1 TIDAK DITEMUKAN")
 
 if '2' in found_devices:
     ESP2_IP = found_devices['2']
     print(f"✅ ESP 2 Terhubung: {ESP2_IP}")
 else:
-    print("⚠️  ESP 2 TIDAK DITEMUKAN (Cek power/koneksi)")
+    print("⚠️  ESP 2 TIDAK DITEMUKAN")
+
+if '3' in found_devices:
+    ESP3_IP = found_devices['3']
+    print(f"✅ ESP 3 Terhubung: {ESP3_IP}")
+else:
+    print("⚠️  ESP 3 TIDAK DITEMUKAN")
+
+if '4' in found_devices:
+    ESP4_IP = found_devices['4']
+    print(f"✅ ESP 4 Terhubung: {ESP4_IP}")
+else:
+    print("⚠️  ESP 4 TIDAK DITEMUKAN")
 
 print("-" * 40)
 
@@ -136,7 +150,7 @@ def send_command(command, target_ip):
     except (ConnectionError, requests.exceptions.Timeout):
         print(f"❌ [ERROR] Gagal koneksi ke ESP di {target_ip}") 
 
-# --- DEFINISI GESTUR ---
+# --- DEFINISI GESTUR (10 KELAS) ---
 actions = np.array([
     'close_to_open_palm', 'open_to_close_palm', 
     'close_to_one', 'open_to_one', 
@@ -188,7 +202,6 @@ try:
 
             image, results = mediapipe_detection(frame, holistic)
 
-            # Gambar landmark (Opsional)
             if results.right_hand_landmarks:
                 mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
 
@@ -208,7 +221,7 @@ try:
                     temp_action = actions[np.argmax(prediction)]
 
             # =====================================================
-            # LOGIKA STATE MACHINE (DYNAMIC IP + COOLDOWN)
+            # LOGIKA STATE MACHINE (4 DEVICES + DYNAMIC IP)
             # =====================================================
             
             current_time_for_logic = time.time()
@@ -219,27 +232,38 @@ try:
 
             if temp_action != '...' and not in_cooldown:
                 
-                # 1. JIKA MENUNGGU SELEKSI PERANGKAT (State Aktif)
                 if current_action_state is not None:
                     if temp_action in SELECTION_GESTURES:
                         
-                        # --- ROUTING DINAMIS ---
                         target_esp_ip = "0.0.0.0"
                         device_name = ""
                         cmd = ""
 
+                        # --- Device 1 ---
                         if temp_action in ['close_to_one', 'open_to_one']:
                             target_esp_ip = ESP1_IP
                             device_name = "PERANGKAT 1"
                             cmd = '11' if current_action_state == 'AKSI_ON' else '10'
                         
+                        # --- Device 2 ---
                         elif temp_action in ['close_to_two', 'open_to_two']:
                             target_esp_ip = ESP2_IP
                             device_name = "PERANGKAT 2"
                             cmd = '21' if current_action_state == 'AKSI_ON' else '20'
                         
-                        # Jika nanti ada Device 3 atau 4, tambahkan di sini
+                        # --- Device 3 ---
+                        elif temp_action in ['close_to_three', 'open_to_three']:
+                            target_esp_ip = ESP3_IP
+                            device_name = "PERANGKAT 3"
+                            cmd = '31' if current_action_state == 'AKSI_ON' else '30'
+
+                        # --- Device 4 ---
+                        elif temp_action in ['close_to_four', 'open_to_four']:
+                            target_esp_ip = ESP4_IP
+                            device_name = "PERANGKAT 4"
+                            cmd = '41' if current_action_state == 'AKSI_ON' else '40'
                         
+                        # Eksekusi
                         if target_esp_ip != "0.0.0.0":
                             print(f"📡 PERINTAH: {device_name} (IP: {target_esp_ip}) -> {current_action_state}")
                             send_command(cmd, target_esp_ip)

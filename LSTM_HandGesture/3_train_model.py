@@ -104,11 +104,6 @@ with open("latest_accuracy.txt", "w") as f:
 total_end = time.time()
 print(f"\nTotal Waktu Eksekusi Script: {total_end - total_start:.2f} detik.")
 
-# ... (Kode di atas tetap sama) ...
-
-total_end = time.time()
-print(f"\nTotal Waktu Eksekusi Script: {total_end - total_start:.2f} detik.")
-
 # ==========================================
 # --- BAGIAN VISUALISASI GRAFIK (BARU) ---
 # ==========================================
