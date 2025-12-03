@@ -8,6 +8,23 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import matplotlib.pyplot as plt
 
+# Ambil folder tempat script ini berada
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Naik satu level dari folder 'LSTM_HandGesture' ke 'code_gesture'
+# Lalu naik lagi ke 'PRATA' (sesuai struktur folder kamu)
+# Lalu masuk ke 'BukuTATekkomLatex'
+# Sesuaikan '..' sebanyak yang dibutuhkan untuk keluar dari folder coding ke folder root project
+LATEX_PROJECT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, '../../BukuTATekkomLatex'))
+
+TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data') 
+IMG_DIR = os.path.join(LATEX_PROJECT_DIR, 'gambar') # Tambahkan ini untuk gambar grafik
+
+# Buat folder jika belum ada
+os.makedirs(TEX_DATA_DIR, exist_ok=True)
+os.makedirs(IMG_DIR, exist_ok=True)
+
+
 total_start = time.time()
 
 # Arahkan path ke folder Keypoints_Data
@@ -132,8 +149,8 @@ plt.xlabel('Epoch')
 plt.ylabel('Akurasi')
 plt.legend(loc='lower right')
 plt.grid(True)
-plt.savefig('grafik_akurasi.png') # Simpan otomatis
-print("✅ Grafik Akurasi disimpan sebagai 'grafik_akurasi.png'")
+plt.savefig(os.path.join(IMG_DIR, 'grafik_akurasi.png')) 
+print(f"✅ Grafik Akurasi disimpan di: {os.path.join(IMG_DIR, 'grafik_akurasi.png')}")
 plt.close() # Tutup plot agar tidak menumpuk
 
 # --- GRAFIK 2: LOSS ---
@@ -145,8 +162,8 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend(loc='upper right')
 plt.grid(True)
-plt.savefig('grafik_loss.png') # Simpan otomatis
-print("✅ Grafik Loss disimpan sebagai 'grafik_loss.png'")
+plt.savefig(os.path.join(IMG_DIR, 'grafik_loss.png'))
+print(f"✅ Grafik Loss disimpan di: {os.path.join(IMG_DIR, 'grafik_loss.png')}")
 plt.close()
 
 
@@ -157,10 +174,8 @@ plt.close()
 # ==========================================
 print("\nMenyimpan konfigurasi pelatihan ke file LaTeX...")
 
-LATEX_PROJECT_DIR = 'C:\zafaa\kuliah\SEMESTER7\PRATA\BukuTATekkomLatex' 
-TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data/') 
+
 OUTPUT_CONFIG_FILE = os.path.join(TEX_DATA_DIR, 'training_config.tex')
-os.makedirs(TEX_DATA_DIR, exist_ok=True)
 
 # --- AMBIL DATA REAL DARI VARIABEL DI ATAS ---
 # 1. Optimizer: Ambil langsung dari object model biar akurat
@@ -168,6 +183,15 @@ real_optimizer = model.optimizer.get_config()['name']
 
 # 2. Learning Rate: Coba ambil dari optimizer yang aktif
 real_lr = model.optimizer.learning_rate.numpy()
+
+# Ambil nama loss, pastikan string, dan ganti '_' dengan '\_' agar aman di LaTeX
+raw_loss = model_loss
+if hasattr(raw_loss, '__name__'): # Jika loss berupa object fungsi
+    raw_loss = raw_loss.__name__
+
+# Escape underscore untuk LaTeX (categorical_crossentropy -> categorical\_crossentropy)
+safe_loss_fn = str(raw_loss).replace('_', '\\_') 
+# ---------------------------
 
 # 3. Split Ratio: Hitung persentase real
 real_split_val = int(test_size * 100)
@@ -180,7 +204,7 @@ tex_content = f"""% Data Konfigurasi Training Otomatis
 
 \\newcommand{{\\TrainOptimizer}}{{{real_optimizer}}}
 \\newcommand{{\\TrainLearningRate}}{{{real_lr}}}
-\\newcommand{{\\TrainLossFn}}{{{model_loss}}}
+\\newcommand{{\\TrainLossFn}}{{{safe_loss_fn}}}
 \\newcommand{{\\TrainBatchSize}}{{{batch_size}}}  % Mengambil variabel BATCH_SIZE
 \\newcommand{{\\TrainMaxEpochs}}{{{max_epochs}}}  % Mengambil variabel MAX_EPOCHS
 \\newcommand{{\\TrainPatience}}{{{patience}}}      % Mengambil variabel PATIENCE
