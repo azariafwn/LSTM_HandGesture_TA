@@ -216,3 +216,55 @@ with open(OUTPUT_CONFIG_FILE, "w") as f:
     f.write(tex_content)
 
 print(f"✅ Konfigurasi tersimpan di: {OUTPUT_CONFIG_FILE}")
+
+
+# ... (Kode sebelumnya: plt.savefig dan bagian export config awal) ...
+
+# ==========================================
+# --- BAGIAN AUTO-GENERATE ARSITEKTUR KE LATEX ---
+# ==========================================
+
+# Kita ambil info langsung dari layer model biar AKURAT 100%
+# Struktur di kode Anda:
+# Layer 0: LSTM
+# Layer 1: Dropout
+# Layer 2: LSTM
+# Layer 3: Dropout
+# Layer 4: LSTM
+# Layer 5: Dense
+# Layer 6: Dense
+# Layer 7: Output
+
+# Ambil data unit/rate dari layer
+lstm1_units = model.layers[0].units
+drop1_rate  = model.layers[1].rate
+lstm2_units = model.layers[2].units
+drop2_rate  = model.layers[3].rate
+lstm3_units = model.layers[4].units
+dense1_units = model.layers[5].units
+dense2_units = model.layers[6].units
+output_units = model.layers[7].units
+
+# Update konten LaTeX (Tambahkan variabel arsitektur)
+# Kita append (tambahkan) ke string tex_content yang sudah ada sebelumnya
+tex_content += f"""
+% --- ARSITEKTUR MODEL DINAMIS ---
+\\newcommand{{\\TrainSeqLength}}{{{sequence_length}}}
+\\newcommand{{\\TrainInputFeatures}}{{63}} % 21 titik x 3 dimensi
+
+\\newcommand{{\\LstmOneUnits}}{{{lstm1_units}}}
+\\newcommand{{\\DropOneRate}}{{{drop1_rate}}}
+\\newcommand{{\\LstmTwoUnits}}{{{lstm2_units}}}
+\\newcommand{{\\DropTwoRate}}{{{drop2_rate}}}
+\\newcommand{{\\LstmThreeUnits}}{{{lstm3_units}}}
+
+\\newcommand{{\\DenseOneUnits}}{{{dense1_units}}}
+\\newcommand{{\\DenseTwoUnits}}{{{dense2_units}}}
+\\newcommand{{\\OutputUnits}}{{{output_units}}}
+"""
+
+# Tulis ulang file config dengan tambahan baru
+with open(OUTPUT_CONFIG_FILE, "w") as f:
+    f.write(tex_content)
+
+print(f"✅ Konfigurasi & Arsitektur tersimpan di: {OUTPUT_CONFIG_FILE}")
