@@ -53,7 +53,7 @@ import os
 
 # ================= KONFIGURASI PATH =================
 # Ganti path ini agar mengarah ke folder root proyek LaTeX Anda
-LATEX_PROJECT_PATH = r"C:\zafaa\kuliah\SEMESTER7\PRATA\BukuTATekkomLatex"
+LATEX_PROJECT_PATH = r"C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex/data"
 
 # Nama file model di folder Python saat ini
 H5_MODEL_NAME = 'hand_gesture_model_terbaik.keras'
