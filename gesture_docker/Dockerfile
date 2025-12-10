@@ -49,7 +49,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Salin sisa file aplikasi Anda
 COPY run_model.py .
+COPY run_model_hands.py .
 COPY model.tflite .
 
 # Perintah default yang akan dijalankan saat container startup
-CMD ["python3", "run_model.py"]
+CMD ["python3", "run_model_hands.py"]
