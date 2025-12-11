@@ -36,7 +36,7 @@ def log_to_csv(event, fps, edge_ms, wifi_ms, total_ms):
 # --- KONFIGURASI SISTEM ---
 # ==========================================
 COOLDOWN_DURATION = 1.5         
-POST_COMMAND_COOLDOWN = 3.0     
+POST_COMMAND_COOLDOWN = 3.5     
 STATE_TIMEOUT = 5 
 PREDICTION_THRESHOLD = 0.97
 
@@ -164,7 +164,7 @@ fps = 0
 # --- INISIALISASI MP HANDS (OPTIMAL) ---
 with mp_hands.Hands(
     max_num_hands=1,            # Hanya 1 tangan (Hemat CPU)
-    model_complexity=0,         # 0 = Lite (Paling Cepat), 1 = Full
+    model_complexity=1,         # 0 = Lite (Paling Cepat), 1 = Full
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 ) as hands:
