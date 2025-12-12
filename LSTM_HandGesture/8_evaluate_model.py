@@ -165,6 +165,12 @@ results['size_keras_kb'] = get_file_size_kb(KERAS_MODEL_PATH)
 results['size_tflite_kb'] = get_file_size_kb(TFLITE_MODEL_PATH)
 results['size_reduction'] = ((results['size_keras_kb'] - results['size_tflite_kb']) / results['size_keras_kb']) * 100
 
+if results['ram_keras'] > 0:
+    results['ram_reduction'] = ((results['ram_keras'] - results['ram_tflite']) / results['ram_keras']) * 100
+else:
+    results['ram_reduction'] = 0
+# -------------------------
+
 tex_content = f"""% Data Benchmark Otomatis
 % Tanggal: {time.strftime("%Y-%m-%d %H:%M:%S")}
 
@@ -174,6 +180,7 @@ tex_content = f"""% Data Benchmark Otomatis
 \\newcommand{{\\SizeReductionPct}}{{{results['size_reduction']:.1f}}}
 \\newcommand{{\\RamKerasMB}}{{{results['ram_keras']:.2f}}}
 \\newcommand{{\\RamTfliteMB}}{{{results['ram_tflite']:.2f}}}
+\\newcommand{{\\RamReductionPct}}{{{results['ram_reduction']:.1f}}}
 
 % --- KINERJA GLOBAL ---
 \\newcommand{{\\AccKeras}}{{{results['acc_keras']:.2f}}}
