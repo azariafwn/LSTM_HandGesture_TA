@@ -8,9 +8,9 @@ const char* password = "12345678";
 // GANTI NAMA INI UNTUK SETIAP ESP!
 // ESP 1 -> "perangkat-1"
 // ESP 2 -> "perangkat-2"
-// const char* hostName = "perangkat-1"; 
+const char* hostName = "perangkat-1"; 
 // const char* hostName = "perangkat-2"; 
-const char* hostName = "perangkat-3"; 
+// const char* hostName = "perangkat-3"; 
 // const char* hostName = "perangkat-4"; 
 
 ESP8266WebServer server(80);
@@ -59,9 +59,9 @@ void setup() {
     // Service: _http._tcp, Name: gesture-iot, Port: 80
     MDNS.addService("http", "tcp", 80);
     MDNS.addServiceTxt("http", "tcp", "type", "gesture-iot"); // Tag khusus kita
-    // MDNS.addServiceTxt("http", "tcp", "id", "1"); // ID perangkat 
+    MDNS.addServiceTxt("http", "tcp", "id", "1"); // ID perangkat 
     // MDNS.addServiceTxt("http", "tcp", "id", "2"); // ID perangkat 
-    MDNS.addServiceTxt("http", "tcp", "id", "3"); // ID perangkat 
+    // MDNS.addServiceTxt("http", "tcp", "id", "3"); // ID perangkat 
     // MDNS.addServiceTxt("http", "tcp", "id", "4"); // ID perangkat
   } else {
     Serial.println("Error setting up MDNS responder!");

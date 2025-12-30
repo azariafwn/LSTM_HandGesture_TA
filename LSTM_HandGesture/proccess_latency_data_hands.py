@@ -3,7 +3,7 @@ import os
 
 # === KONFIGURASI ===
 # Path ke file CSV input
-CSV_FILE_PATH = 'data_skripsi_hands.csv'
+CSV_FILE_PATH = 'data/data_skripsi_hands.csv'
 # Path ke file TEX output yang akan dibuat
 LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex' 
 TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data/') 
