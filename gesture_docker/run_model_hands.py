@@ -18,7 +18,7 @@ OUTPUT_DIR = "logs_output"
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
-LOG_FILE = os.path.join(OUTPUT_DIR, "data_skripsi_hands.csv") # Ganti nama file biar gak kecampur
+LOG_FILE = os.path.join(OUTPUT_DIR, "data_pengujian.csv") # Ganti nama file biar gak kecampur
 
 # Buat header CSV jika file belum ada
 if not os.path.exists(LOG_FILE):
@@ -164,7 +164,7 @@ fps = 0
 # --- INISIALISASI MP HANDS (OPTIMAL) ---
 with mp_hands.Hands(
     max_num_hands=1,            # Hanya 1 tangan (Hemat CPU)
-    model_complexity=1,         # 0 = Lite (Paling Cepat), 1 = Full
+    model_complexity=0,         # 0 = Lite (Paling Cepat), 1 = Full
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 ) as hands:
