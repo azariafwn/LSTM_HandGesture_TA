@@ -300,8 +300,6 @@ if __name__ == "__main__":
     # 2. Loop semua skenario, generate gambar, dan hitung akurasi
     for prefix, matrix in data_skenario.items():
         print(f"Memproses: {prefix}...")
-        # Generate gambar (opsional jika sudah ada, tapi aman dijalankan ulang)
-        # generate_manual_cm(matrix, f"Confusion Matrix - {prefix}", prefix.lower())
         
         # Hitung akurasi dan buat command latex
         latex_block = f"% --- Data untuk Skenario: {prefix} ---\n"
