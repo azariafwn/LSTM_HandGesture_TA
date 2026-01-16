@@ -5,8 +5,7 @@ import os
 # Path ke file CSV input
 CSV_FILE_PATH = 'data/data_pengujian.csv'
 # Path ke file TEX output yang akan dibuat
-# LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex'
-LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture'
+LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex'
 TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data/')
 TEX_OUTPUT_PATH = os.path.join(TEX_DATA_DIR, 'latency_pengujian_stats.tex')
 
