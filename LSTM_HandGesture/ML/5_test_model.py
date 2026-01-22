@@ -28,7 +28,7 @@ def extract_keypoints(results):
     return rh
 
 # --- LOAD MODEL TFLITE ---
-TFLITE_MODEL_PATH = 'model.tflite'
+TFLITE_MODEL_PATH = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/model.tflite'
 interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
@@ -57,6 +57,11 @@ if not cap.isOpened():
 
 prev_time = 0
 fps = 0
+
+w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+print(f"RESOLUSI KAMERA SAAT INI: {w} x {h}")
+# ---------------------
 
 print("\nMulai deteksi... Tekan 'q' untuk keluar.")
 

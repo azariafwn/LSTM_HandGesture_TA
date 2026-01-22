@@ -1,9 +1,10 @@
 import pandas as pd
 import os
+import numpy as np
 
 # === KONFIGURASI ===
 # Path ke file CSV input
-CSV_FILE_PATH = 'data/data_pengujian.csv'
+CSV_FILE_PATH = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/data/data_pengujian.csv'
 # Path ke file TEX output yang akan dibuat
 LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex'
 TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data/')
@@ -15,7 +16,6 @@ def process_data():
     # 1. Baca data dari CSV
     try:
         df = pd.read_csv(CSV_FILE_PATH)
-        # --- TAMBAHAN BARU 1: Simpan jumlah data ke variabel ---
         total_samples = len(df)
         print(f"Berhasil membaca {total_samples} baris data.")
     except FileNotFoundError:
@@ -29,22 +29,26 @@ def process_data():
     stats['FPS_min'] = df['FPS'].min()
     stats['FPS_max'] = df['FPS'].max()
     stats['FPS_mean'] = df['FPS'].mean()
-    stats['FPS_std'] = df['FPS'].std() # Standar deviasi sampel
+    stats['FPS_std'] = df['FPS'].std()
 
     # --- B. Statistik Latensi (Untuk Bab 4.5 & 4.6) ---
+    # Loop ini menghitung statistik lengkap untuk Edge, WiFi, dan Total
     for col in ['Edge_Latency_ms', 'WiFi_Latency_ms', 'Total_Latency_ms']:
         stats[f'{col}_min'] = df[col].min()
         stats[f'{col}_max'] = df[col].max()
         stats[f'{col}_mean'] = df[col].mean()
+        stats[f'{col}_std'] = df[col].std() # Std dev dihitung untuk semua di sini
 
     # 3. Hitung Persentase Kontribusi (Untuk Bab 4.6)
     total_mean = stats['Total_Latency_ms_mean']
-    edge_pct = (stats['Edge_Latency_ms_mean'] / total_mean) * 100
-    wifi_pct = (stats['WiFi_Latency_ms_mean'] / total_mean) * 100
+    if total_mean > 0:
+        edge_pct = (stats['Edge_Latency_ms_mean'] / total_mean) * 100
+        wifi_pct = (stats['WiFi_Latency_ms_mean'] / total_mean) * 100
+    else:
+        edge_pct = 0
+        wifi_pct = 0
 
     # 4. Hitung nilai ilustrasi teoritis FPS (Untuk Bab 4.5)
-    # Contoh: 1000ms / Rata-rata Edge Latency
-    # Handle potential division by zero if mean is 0 (unlikely but good practice)
     if stats['Edge_Latency_ms_mean'] > 0:
         theoretical_fps = 1000 / stats['Edge_Latency_ms_mean']
     else:
@@ -54,10 +58,12 @@ def process_data():
 
     # --- FORMATTING KE LATEX ---
     def fmt(val):
+        # Handle jika nilai NaN (misal data kosong)
+        if pd.isna(val) or np.isnan(val):
+             return "0.00"
         return f"{val:.2f}"
 
     # Buat konten file .tex
-    # Perhatikan penambahan command \TotalSamples di bawah ini
     tex_content = f"""% File ini digenerate otomatis oleh process_latency_data.py
 % JANGAN DIEDIT MANUAL. Update file CSV-nya, lalu jalankan script Python-nya lagi.
 % Waktu generate: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -65,7 +71,6 @@ def process_data():
 % ==================================================
 % METADATA PENGUJIAN
 % ==================================================
-% Total jumlah sampel data yang diuji
 \\newcommand{{\\TotalSamples}}{{{total_samples}}}
 
 % ==================================================
@@ -77,13 +82,13 @@ def process_data():
 \\newcommand{{\\FPSMax}}{{{fmt(stats['FPS_max'])}}}
 \\newcommand{{\\FPSMean}}{{{fmt(stats['FPS_mean'])}}}
 \\newcommand{{\\FPSStd}}{{{fmt(stats['FPS_std'])}}}
-\\newcommand{{\\TheoreticalFPS}}{{{fmt(theoretical_fps)}}} % Nilai ilustrasi
+\\newcommand{{\\TheoreticalFPS}}{{{fmt(theoretical_fps)}}}
 
 % --- Statistik Latensi Pemrosesan Edge (T_edge) ---
-% Catatan: EdgeMean juga digunakan di Bab 4.6
 \\newcommand{{\\EdgeMin}}{{{fmt(stats['Edge_Latency_ms_min'])}}}
 \\newcommand{{\\EdgeMax}}{{{fmt(stats['Edge_Latency_ms_max'])}}}
 \\newcommand{{\\EdgeMean}}{{{fmt(stats['Edge_Latency_ms_mean'])}}}
+\\newcommand{{\\EdgeStd}}{{{fmt(stats['Edge_Latency_ms_std'])}}}
 
 % ==================================================
 % DATA UNTUK BAB 4.6 (ANALISIS LATENSI TOTAL)
@@ -93,11 +98,13 @@ def process_data():
 \\newcommand{{\\WiFiMin}}{{{fmt(stats['WiFi_Latency_ms_min'])}}}
 \\newcommand{{\\WiFiMax}}{{{fmt(stats['WiFi_Latency_ms_max'])}}}
 \\newcommand{{\\WiFiMean}}{{{fmt(stats['WiFi_Latency_ms_mean'])}}}
+\\newcommand{{\\WiFiStd}}{{{fmt(stats['WiFi_Latency_ms_std'])}}}
 
 % --- Statistik Total Latensi (T_total) ---
 \\newcommand{{\\TotalMin}}{{{fmt(stats['Total_Latency_ms_min'])}}}
 \\newcommand{{\\TotalMax}}{{{fmt(stats['Total_Latency_ms_max'])}}}
 \\newcommand{{\\TotalMean}}{{{fmt(stats['Total_Latency_ms_mean'])}}}
+\\newcommand{{\\TotalStd}}{{{fmt(stats['Total_Latency_ms_std'])}}}
 
 % --- Persentase Kontribusi Rata-rata ---
 \\newcommand{{\\EdgePct}}{{{fmt(edge_pct)}}}
