@@ -38,7 +38,6 @@ LATEX_FILE_PATH = os.path.join(LATEX_OUTPUT_DIR, 'akurasi_pengujian_all.tex')
 os.makedirs(LATEX_OUTPUT_DIR, exist_ok=True)
 
 # PATH KE FILE CSV DATA PENGUJIAN DI RASPI/LAPTOP
-# Pastikan file ini sudah berisi kolom 'Target_Gesture' dan 'Last_Command'
 CSV_PATH = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/data/data_pengujian.csv'
 # -----------------------------------------------------
 
@@ -69,8 +68,11 @@ def generate_manual_cm(data_matrix, title, filename_suffix):
     print(f"✅ Gambar berhasil disimpan: {filepath}")
     plt.close()
 
+# --- FUNGSI INI YANG DIUPDATE ---
 def hitung_akurasi_dan_generate_latex(data_matrix, scenario_prefix):
-    """Menghitung akurasi per kelas dari CM dan membuat command LaTeX."""
+    """
+    Menghitung akurasi (persen dengan 1 desimal) dan jumlah sampel (integer tanpa koma).
+    """
     latex_commands = []
     
     # Pastikan matriks adalah numpy array 8x8
@@ -78,72 +80,82 @@ def hitung_akurasi_dan_generate_latex(data_matrix, scenario_prefix):
          data_matrix = np.zeros((8,8), dtype=int)
 
     true_positives = np.diag(data_matrix)
+    # total_per_class adalah penjumlahan baris (Jumlah sampel aktual tiap kelas)
     total_per_class = np.sum(data_matrix, axis=1)
+    
+    # Hitung total sampel keseluruhan dalam skenario ini
+    total_scenario_samples = np.sum(data_matrix)
 
     accuracies = []
     for i, label in enumerate(CLASS_LABELS):
+        # 1. Hitung Akurasi Per Kelas (Pakai 1 desimal)
         if total_per_class[i] > 0:
-            # Rumus: (Benar / Total Sampel Kelas Itu) * 100
             acc = (true_positives[i] / total_per_class[i]) * 100
         else:
             acc = 0.0
         accuracies.append(acc)
-        cmd_name = f"Acc{scenario_prefix}{LABEL_TO_CMD[label]}"
-        latex_commands.append(f"\\newcommand{{\\{cmd_name}}}{{{acc:.1f}}}")
+        acc_cmd_name = f"Acc{scenario_prefix}{LABEL_TO_CMD[label]}"
+        latex_commands.append(f"\\newcommand{{\\{acc_cmd_name}}}{{{acc:.1f}}}")
 
-    # Hitung rata-rata total hanya dari kelas yang memiliki data pengujian
+        # 2. Hitung Jumlah Sampel Per Kelas (Pakai Integer)
+        count_cmd_name = f"Count{scenario_prefix}{LABEL_TO_CMD[label]}"
+        # int(...) memastikan tidak ada koma
+        latex_commands.append(f"\\newcommand{{\\{count_cmd_name}}}{{{int(total_per_class[i])}}}")
+
+    # 3. Hitung Rata-rata Akurasi Skenario (Pakai 1 desimal)
     kelas_yg_ada_data = [acc for i, acc in enumerate(accuracies) if total_per_class[i] > 0]
     if kelas_yg_ada_data:
         avg_acc = np.mean(kelas_yg_ada_data)
     else:
         avg_acc = 0.0
-
     avg_cmd_name = f"Acc{scenario_prefix}Avg"
     latex_commands.append(f"\\newcommand{{\\{avg_cmd_name}}}{{{avg_acc:.1f}}}")
 
+    # 4. Hitung Total Sampel Skenario (Pakai Integer)
+    total_cmd_name = f"Count{scenario_prefix}Total"
+    latex_commands.append(f"\\newcommand{{\\{total_cmd_name}}}{{{int(total_scenario_samples)}}}")
+
+    ### --- Rata-rata Count (UPDATE: DIGANTI JADI INTEGER) ---
+    num_active_classes = np.sum(total_per_class > 0)
+    
+    if num_active_classes > 0:
+        # Hasil pembagian ini bisa float (misal 180.0)
+        avg_count_per_class = total_scenario_samples / num_active_classes
+    else:
+        avg_count_per_class = 0
+        
+    avg_count_cmd_name = f"Count{scenario_prefix}Avg"
+    # DIUBAH DI SINI: Menggunakan int() agar tidak ada .0 di belakang
+    latex_commands.append(f"\\newcommand{{\\{avg_count_cmd_name}}}{{{int(avg_count_per_class)}}}")
+    ### ------------------------------------
+
     return "\n".join(latex_commands)
+# --------------------------------
 
 # ==============================================================================
-# --- FUNGSI BARU UTAMA: MEMBANGUN CM RIIL DARI CSV ---
+# --- FUNGSI MEMBANGUN CM RIIL DARI CSV (SAMA) ---
 # ==============================================================================
 def build_real_cm_from_csv(df, filter_col, filter_val):
-    """
-    Membangun Confusion Matrix 8x8 Riil dari data CSV menggunakan pd.crosstab.
-    - Sumbu Y (Aktual) diambil dari kolom 'Target_Gesture'
-    - Sumbu X (Prediksi) diambil dari kolom 'Last_Command'
-    """
     print(f"   [Processing] Memfilter data: {filter_col} == {filter_val}...")
-    
-    # 1. Filter data berdasarkan kriteria (misal: Resolution == '480p')
     filtered_df = df[df[filter_col] == filter_val]
 
     if filtered_df.empty:
         print(f"   [Info] Data kosong untuk filter ini. Mengembalikan matriks 0.")
         return np.zeros((len(CLASS_LABELS), len(CLASS_LABELS)), dtype=int)
 
-    # 2. Validasi: Pastikan kolom target dan command ada
     if 'Target_Gesture' not in filtered_df.columns or 'Last_Command' not in filtered_df.columns:
         print("❌ ERROR: Kolom 'Target_Gesture' atau 'Last_Command' tidak ditemukan di CSV.")
         return np.zeros((8,8), dtype=int)
 
-    # 3. GUNAKAN PANDAS CROSSTAB (Ini inti otomatisasinya)
-    # Ini otomatis menghitung frekuensi silang antara Aktual vs Prediksi
     cm_df = pd.crosstab(
-        index=filtered_df['Target_Gesture'],   # Baris = Aktual
-        columns=filtered_df['Last_Command'],   # Kolom = Prediksi
-        dropna=False # Jangan buang kategori yang kosong dulu
+        index=filtered_df['Target_Gesture'],
+        columns=filtered_df['Last_Command'],
+        dropna=False
     )
     
-    # 4. REINDEXING (PENTING!)
-    # Memastikan matriks selalu berukuran 8x8 sesuai urutan CLASS_LABELS,
-    # meskipun ada gestur yang tidak pernah muncul di data.
-    # Nilai yang kosong diisi dengan 0.
     cm_df_reindexed = cm_df.reindex(index=CLASS_LABELS, columns=CLASS_LABELS, fill_value=0)
-
     print(f"   [Success] CM berhasil dibangun dari {len(filtered_df)} sampel data.")
-    # Ubah dari DataFrame pandas menjadi numpy array agar kompatibel dengan fungsi visualisasi
     return cm_df_reindexed.to_numpy()
-# ==============================================================================
 
 
 # ==========================================
@@ -155,12 +167,11 @@ if __name__ == "__main__":
     # BAGIAN 1: LOAD CSV DATA
     # ===================================================
     print(f"--- Membaca data dari CSV: {CSV_PATH} ---")
-    df_csv = pd.DataFrame() # Inisialisasi DF kosong
+    df_csv = pd.DataFrame()
     try:
         df_csv = pd.read_csv(CSV_PATH)
         print(f"✅ Berhasil membaca {len(df_csv)} baris data.")
         
-        # Bersihkan spasi ekstra jika ada di data CSV agar matching string sempurna
         if not df_csv.empty:
             if 'Target_Gesture' in df_csv.columns:
                 df_csv['Target_Gesture'] = df_csv['Target_Gesture'].astype(str).str.strip()
@@ -169,7 +180,6 @@ if __name__ == "__main__":
                 
     except FileNotFoundError:
         print(f"⚠️ WARNING: File {CSV_PATH} tidak ditemukan.")
-        print("Semua matriks otomatis akan kosong (nol).")
     except Exception as e:
         print(f"❌ ERROR saat membaca CSV: {e}")
         exit()
@@ -183,7 +193,6 @@ if __name__ == "__main__":
     # A. SKENARIO OTOMATIS DARI CSV (VARIASI JARAK)
     # ---------------------------------------------------
     print("\n--- Memproses Data Otomatis dari CSV (Variasi Jarak) ---")
-    # Pastikan nilai filter ('30cm', dll) SAMA PERSIS dengan yang tertulis di CSV Anda
     cm_data_jarak_30 = build_real_cm_from_csv(df_csv, 'Distance', '30cm')
     generate_manual_cm(cm_data_jarak_30, "Confusion Matrix - Jarak 30 cm", "jarak_30cm")
 
@@ -198,30 +207,24 @@ if __name__ == "__main__":
     # B. SKENARIO OTOMATIS DARI CSV (VARIASI RESOLUSI)
     # ---------------------------------------------------
     print("\n--- Memproses Data Otomatis dari CSV (Variasi Resolusi) ---")
-    # 480p
     cm_data_resolusi_480p = build_real_cm_from_csv(df_csv, 'Resolution', '480p')
     generate_manual_cm(cm_data_resolusi_480p, "Confusion Matrix - Resolusi 480p", "resolusi_480p")
 
-    # 720p
     cm_data_resolusi_720p = build_real_cm_from_csv(df_csv, 'Resolution', '720p')
     generate_manual_cm(cm_data_resolusi_720p, "Confusion Matrix - Resolusi 720p", "resolusi_720p")
 
 
     # ---------------------------------------------------
     # C. SKENARIO MANUAL DUMMY (VARIASI PENCAHAYAAN)
-    # Karena datanya belum ada, kita pakai data dummy dulu.
-    # Nanti kalau datanya sudah ada di CSV (misal ada kolom 'Lighting'),
-    # tinggal ubah jadi pakai build_real_cm_from_csv juga.
     # ---------------------------------------------------
     print("\n--- Memproses Data Manual DUMMY (Variasi Pencahayaan) ---")
-    # Cahaya Redup (DUMMY)
-    cm_data_cahaya_redup = np.array([[15, 2, 1, 0, 0, 0, 0, 0], [3, 14, 0, 1, 0, 0, 0, 0], [1, 0, 16, 3, 0, 0, 0, 0], [0, 0, 2, 18, 0, 0, 0, 0], [0, 0, 0, 0, 12, 5, 1, 0], [0, 0, 0, 0, 4, 16, 0, 0], [0, 0, 0, 0, 1, 0, 14, 3], [0, 1, 0, 0, 0, 0, 2, 17]])
+    cm_data_cahaya_redup = np.zeros((8,8), dtype=int)
     generate_manual_cm(cm_data_cahaya_redup, "Confusion Matrix - Cahaya Redup (DUMMY)", "cahaya_redup")
-    # Cahaya Sedang (DUMMY)
-    cm_data_cahaya_sedang = np.array([[20, 0, 0, 0, 0, 0, 0, 0], [0, 20, 0, 0, 0, 0, 0, 0], [0, 0, 20, 0, 0, 0, 0, 0], [0, 0, 0, 20, 0, 0, 0, 0], [0, 0, 0, 0, 20, 0, 0, 0], [0, 0, 0, 0, 0, 20, 0, 0], [0, 0, 0, 0, 0, 0, 20, 0], [0, 0, 0, 0, 0, 0, 0, 20]])
+    
+    cm_data_cahaya_sedang = np.zeros((8,8), dtype=int)
     generate_manual_cm(cm_data_cahaya_sedang, "Confusion Matrix - Cahaya Sedang (DUMMY)", "cahaya_sedang")
-    # Cahaya Terang (DUMMY)
-    cm_data_cahaya_terang = np.array([[19, 1, 0, 0, 0, 0, 0, 0], [0, 20, 0, 0, 0, 0, 0, 0], [0, 0, 18, 2, 0, 0, 0, 0], [0, 0, 0, 20, 0, 0, 0, 0], [0, 0, 0, 0, 19, 1, 0, 0], [0, 0, 0, 0, 1, 19, 0, 0], [0, 0, 0, 0, 0, 0, 20, 0], [0, 0, 0, 0, 0, 0, 0, 20]])
+    
+    cm_data_cahaya_terang = np.zeros((8,8), dtype=int)
     generate_manual_cm(cm_data_cahaya_terang, "Confusion Matrix - Cahaya Terang (DUMMY)", "cahaya_terang")
 
 
@@ -230,17 +233,14 @@ if __name__ == "__main__":
     # ===================================================
     print("\n--- Menghitung Total Confusion Matrix Gabungan ---")
 
-    # Kumpulkan semua matriks
     semua_matriks_skenario = [
         cm_data_jarak_30, cm_data_jarak_50, cm_data_jarak_70,
         cm_data_cahaya_redup, cm_data_cahaya_sedang, cm_data_cahaya_terang,
         cm_data_resolusi_480p, cm_data_resolusi_720p
     ]
 
-    # Jumlahkan semua matriks (pastikan semuanya numpy array)
     cm_data_total_gabungan = np.sum([m for m in semua_matriks_skenario if isinstance(m, np.ndarray)], axis=0)
 
-    # Generate gambar total
     generate_manual_cm(
         data_matrix=cm_data_total_gabungan,
         title="Confusion Matrix Total Gabungan Pengujian",
@@ -252,33 +252,30 @@ if __name__ == "__main__":
     # ===================================================
     # BAGIAN 4: GENERATE FILE LATEX
     # ===================================================
-
-    # Daftarkan semua matriks dan prefixnya
     data_skenario = {
         "JarakDekat": cm_data_jarak_30,
         "JarakIdeal": cm_data_jarak_50,
         "JarakJauh":  cm_data_jarak_70,
         "ResSedang": cm_data_resolusi_480p,
         "ResTinggi": cm_data_resolusi_720p,
-        "CahayaRedup":  cm_data_cahaya_redup, # Masih dummy
-        "CahayaSedang": cm_data_cahaya_sedang, # Masih dummy
-        "CahayaTerang": cm_data_cahaya_terang, # Masih dummy
+        "CahayaRedup":  cm_data_cahaya_redup,
+        "CahayaSedang": cm_data_cahaya_sedang,
+        "CahayaTerang": cm_data_cahaya_terang,
         "TotalGabungan": cm_data_total_gabungan
     }
 
     print("--- Memulai Proses Generasi File LaTeX ---")
-    full_latex_content = "% File DIGENERATE OTOMATIS OLEH PYTHON DARI DATA CSV RIIL & DUMMY.\n"
-    full_latex_content += "% JANGAN DIEDIT MANUAL.\n"
+    full_latex_content = "% File DIGENERATE OTOMATIS OLEH PYTHON.\n"
+    full_latex_content += "% Berisi Akurasi (%), Jumlah Sampel (Count), dan Rata-rata Sampel (CountAvg).\n"
     full_latex_content += "% Waktu generate: " + pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S') + "\n\n"
 
     for prefix, matrix in data_skenario.items():
         print(f"Memproses data LaTeX untuk: {prefix}...")
-        latex_block = f"% --- Data Akurasi untuk Skenario: {prefix} ---\n"
-        # Pastikan matriks valid sebelum dihitung
+        latex_block = f"% --- Data untuk Skenario: {prefix} ---\n"
         if isinstance(matrix, np.ndarray):
             latex_block += hitung_akurasi_dan_generate_latex(matrix, prefix)
         else:
-            latex_block += f"% ERROR: Matriks untuk {prefix} tidak valid/kosong.\n"
+            latex_block += f"% ERROR: Matriks untuk {prefix} tidak valid.\n"
         latex_block += "\n\n"
         full_latex_content += latex_block
 
@@ -286,6 +283,6 @@ if __name__ == "__main__":
         with open(LATEX_FILE_PATH, "w") as f:
             f.write(full_latex_content)
         print(f"\n✅ SUKSES! File data LaTeX berhasil diperbarui di:\n{LATEX_FILE_PATH}")
-        print("Periksa file tersebut untuk melihat nilai akurasi yang baru.")
+        print("Sekarang command \\Count...Avg sudah menjadi integer (tanpa koma).")
     except Exception as e:
         print(f"\n❌ ERROR saat menulis file LaTeX: {e}")
