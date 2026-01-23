@@ -127,7 +127,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
                 current_action = temp_action
                 last_valid_time = curr_time # Reset timer cooldown
             else:
-                # Jika sedang cooldown, abaikan (atau beri log debug)
+                # log debug Jika sedang cooldown
                 # print(f"Mengabaikan {temp_action} (Cooldown: {COOLDOWN_DURATION - time_since_last:.1f}s)")
                 pass
         

@@ -11,14 +11,10 @@ import matplotlib.pyplot as plt
 # Ambil folder tempat script ini berada
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Naik satu level dari folder 'LSTM_HandGesture' ke 'code_gesture'
-# Lalu naik lagi ke 'PRATA' (sesuai struktur folder kamu)
-# Lalu masuk ke 'BukuTATekkomLatex'
-# Sesuaikan '..' sebanyak yang dibutuhkan untuk keluar dari folder coding ke folder root project
 LATEX_PROJECT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, '../../BukuTATekkomLatex'))
 
 TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data') 
-IMG_DIR = os.path.join(LATEX_PROJECT_DIR, 'gambar') # Tambahkan ini untuk gambar grafik
+IMG_DIR = os.path.join(LATEX_PROJECT_DIR, 'gambar') 
 
 # Buat folder jika belum ada
 os.makedirs(TEX_DATA_DIR, exist_ok=True)
@@ -62,9 +58,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, r
 # # --- MEMBANGUN ARSITEKTUR MODEL LSTM DENGAN DROPOUT ---  
 model = Sequential()
 model.add(LSTM(64, return_sequences=True, activation='tanh', input_shape=(sequence_length, 21*3)))
-model.add(Dropout(0.5)) # <-- Tambahan Dropout
+model.add(Dropout(0.5)) 
 model.add(LSTM(128, return_sequences=True, activation='tanh'))
-model.add(Dropout(0.5)) # <-- Tambahan Dropout
+model.add(Dropout(0.5)) 
 model.add(LSTM(64, return_sequences=False, activation='tanh'))
 model.add(Dense(64, activation='relu'))
 
@@ -218,22 +214,9 @@ with open(OUTPUT_CONFIG_FILE, "w") as f:
 print(f"✅ Konfigurasi tersimpan di: {OUTPUT_CONFIG_FILE}")
 
 
-# ... (Kode sebelumnya: plt.savefig dan bagian export config awal) ...
-
 # ==========================================
 # --- BAGIAN AUTO-GENERATE ARSITEKTUR KE LATEX ---
 # ==========================================
-
-# Kita ambil info langsung dari layer model biar AKURAT 100%
-# Struktur di kode Anda:
-# Layer 0: LSTM
-# Layer 1: Dropout
-# Layer 2: LSTM
-# Layer 3: Dropout
-# Layer 4: LSTM
-# Layer 5: Dense
-# Layer 6: Dense
-# Layer 7: Output
 
 # Ambil data unit/rate dari layer
 lstm1_units = model.layers[0].units
@@ -245,8 +228,7 @@ dense1_units = model.layers[5].units
 dense2_units = model.layers[6].units
 output_units = model.layers[7].units
 
-# Update konten LaTeX (Tambahkan variabel arsitektur)
-# Kita append (tambahkan) ke string tex_content yang sudah ada sebelumnya
+# append ke string tex_content yang sudah ada sebelumnya
 tex_content += f"""
 % --- ARSITEKTUR MODEL DINAMIS ---
 \\newcommand{{\\TrainSeqLength}}{{{sequence_length}}}

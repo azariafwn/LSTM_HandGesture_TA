@@ -23,25 +23,24 @@ def process_data():
     # 2. Hitung Statistik
     stats = {}
 
-    # --- A. Statistik FPS (Untuk Bab 4.5) ---
+    # --- A. Statistik FPS ---
     stats['FPS_min'] = df['FPS'].min()
     stats['FPS_max'] = df['FPS'].max()
     stats['FPS_mean'] = df['FPS'].mean()
-    stats['FPS_std'] = df['FPS'].std() # Standar deviasi sampel
+    stats['FPS_std'] = df['FPS'].std() # Standar deviasi
 
-    # --- B. Statistik Latensi (Untuk Bab 4.5 & 4.6) ---
+    # --- B. Statistik Latensi ---
     for col in ['Edge_Latency_ms', 'WiFi_Latency_ms', 'Total_Latency_ms']:
         stats[f'{col}_min'] = df[col].min()
         stats[f'{col}_max'] = df[col].max()
         stats[f'{col}_mean'] = df[col].mean()
 
-    # 3. Hitung Persentase Kontribusi (Untuk Bab 4.6)
+    # 3. Hitung Persentase Kontribusi
     total_mean = stats['Total_Latency_ms_mean']
     edge_pct = (stats['Edge_Latency_ms_mean'] / total_mean) * 100
     wifi_pct = (stats['WiFi_Latency_ms_mean'] / total_mean) * 100
 
-    # 4. Hitung nilai ilustrasi teoritis FPS (Untuk Bab 4.5)
-    # Contoh: 1000ms / Rata-rata Edge Latency
+    # 4. Hitung nilai ilustrasi teoritis FPS
     theoretical_fps = 1000 / stats['Edge_Latency_ms_mean']
 
     print("Statistik berhasil dihitung.")
@@ -64,7 +63,7 @@ def process_data():
 \\newcommand{{\\FPSMax}}{{{fmt(stats['FPS_max'])}}}
 \\newcommand{{\\FPSMean}}{{{fmt(stats['FPS_mean'])}}}
 \\newcommand{{\\FPSStd}}{{{fmt(stats['FPS_std'])}}}
-\\newcommand{{\\TheoreticalFPS}}{{{fmt(theoretical_fps)}}} % Nilai ilustrasi
+\\newcommand{{\\TheoreticalFPS}}{{{fmt(theoretical_fps)}}}
 
 % --- Statistik Latensi Pemrosesan Edge (T_edge) ---
 % Catatan: EdgeMean juga digunakan di Bab 4.6

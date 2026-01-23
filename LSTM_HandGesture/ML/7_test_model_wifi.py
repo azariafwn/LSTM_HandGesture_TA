@@ -15,11 +15,10 @@ VIDEO_PATH = 'video_testing.mp4'
 COOLDOWN_DURATION = 1.5         
 POST_COMMAND_COOLDOWN = 4.0     
 
-# --- [PERUBAHAN 1] Tambah Variabel IP Default untuk 4 ESP ---
 ESP1_IP = "0.0.0.0" 
 ESP2_IP = "0.0.0.0" 
-ESP3_IP = "0.0.0.0" # Baru
-ESP4_IP = "0.0.0.0" # Baru
+ESP3_IP = "0.0.0.0"
+ESP4_IP = "0.0.0.0"
 
 # ==========================================
 # --- BAGIAN AUTO-DISCOVERY (ZEROCONF) ---
@@ -71,7 +70,7 @@ def find_esp_devices():
 # --- EKSEKUSI PENCARIAN DI AWAL ---
 found_devices = find_esp_devices()
 
-# --- [PERUBAHAN 2] Cek IP untuk 4 Perangkat ---
+# --- Cek IP untuk 4 Perangkat ---
 if '1' in found_devices:
     ESP1_IP = found_devices['1']
     print(f"✅ ESP 1 Terhubung: {ESP1_IP}")
@@ -137,7 +136,7 @@ def send_command(command, target_ip):
     except (ConnectionError, requests.exceptions.Timeout):
         print(f"Peringatan: Gagal koneksi ke ESP di {target_ip} ({command})") 
 
-# --- [PERUBAHAN 3] Update Daftar Gestur ---
+# --- Update Daftar Gestur ---
 # Pastikan urutan ini SAMA PERSIS dengan urutan saat training model!
 actions = np.array([
     'close_to_open_palm', 'open_to_close_palm', 
@@ -229,7 +228,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
             if current_action_state is not None:
                 if temp_action in SELECTION_GESTURES:
                     
-                    # --- [PERUBAHAN 4] ROUTING KE 4 DEVICES ---
+                    # --- ROUTING KE 4 DEVICES ---
                     target_esp_ip = "0.0.0.0"
                     device_name = ""
                     cmd = ""
@@ -246,13 +245,13 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
                         device_name = "PERANGKAT 2"
                         cmd = '21' if current_action_state == 'AKSI_ON' else '20'
                     
-                    # --- Device 3 (BARU) ---
+                    # --- Device 3 ---
                     elif temp_action in ['close_to_three', 'open_to_three']:
                         target_esp_ip = ESP3_IP
                         device_name = "PERANGKAT 3"
                         cmd = '31' if current_action_state == 'AKSI_ON' else '30'
 
-                    # --- Device 4 (BARU) ---
+                    # --- Device 4 ---
                     elif temp_action in ['close_to_four', 'open_to_four']:
                         target_esp_ip = ESP4_IP
                         device_name = "PERANGKAT 4"

@@ -201,9 +201,8 @@ tex_content = f"""% Data Benchmark Otomatis
 """
 
 # Loop untuk membuat macro per kelas (Clean nama agar valid LaTeX)
-# Contoh: \PrecCloseToOpenPalm
+# pake CamelCase
 for i, label in enumerate(LABELS):
-    # Hapus underscore dan ubah ke CamelCase agar valid command LaTeX
     clean_label = label.replace('_', ' ').title().replace(' ', '')
     
     tex_content += f"\\newcommand{{\\Prec{clean_label}}}{{{p_class[i]:.2f}}}\n"

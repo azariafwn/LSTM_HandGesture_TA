@@ -2,7 +2,6 @@ import os
 import time
 
 # === KONFIGURASI ===
-# Path ke folder dataset (MP_Data)
 DATA_PATH = os.path.join('MP_Data') 
 
 # Path Output LaTeX
@@ -14,7 +13,7 @@ OUTPUT_TEX_FILE = os.path.join(TEX_DATA_DIR, 'dataset_stats.tex')
 os.makedirs(TEX_DATA_DIR, exist_ok=True)
 
 # Daftar Nama Folder Asli di MP_Data
-# Kita mapping ke Logical Name untuk Laporan
+# mapping ke Logical Name untuk Laporan
 GESTURE_MAPPING = {
     'close_to_open_palm': 'AksiOn',
     'open_to_close_palm': 'AksiOff',
@@ -41,9 +40,7 @@ for folder_name, logic_name in GESTURE_MAPPING.items():
         # Hitung jumlah folder di dalamnya (setiap folder = 1 video sampel)
         # Filter agar hanya menghitung folder angka (bukan file sampah)
         try:
-            items = os.listdir(folder_path)
-            # Asumsi: setiap sampel adalah folder/file. 
-            # Jika struktur MP_Data Anda: MP_Data/Action/0, MP_Data/Action/1, ...
+            items = os.listdir(folder_path)            
             count = len(items) 
         except Exception as e:
             print(f"Error membaca {folder_name}: {e}")
@@ -52,7 +49,7 @@ for folder_name, logic_name in GESTURE_MAPPING.items():
     total_all += count
     print(f"   -> {folder_name}: {count} sampel")
 
-# === HITUNG TOTAL PER KATEGORI (Opsional, jika tabel ingin digabung) ===
+# === HITUNG TOTAL PER KATEGORI ===
 # Total Perangkat 1 (Close + Open)
 total_p1 = stats.get('P1_Close', 0) + stats.get('P1_Open', 0)
 total_p2 = stats.get('P2_Close', 0) + stats.get('P2_Open', 0)

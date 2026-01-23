@@ -3,9 +3,7 @@ import os
 import sys
 
 # === KONFIGURASI ===
-# Ganti dengan nama folder gestur yang mau kamu intip
 TARGET_CLASS = 'close_to_one' 
-# Pastikan path ini benar di komputer Anda
 DATA_PATH = os.path.join('C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/Keypoints_Data', TARGET_CLASS)
 
 def inspect_data():
@@ -43,7 +41,7 @@ def inspect_data():
     print(data)
     
     # ==============================================================================
-    # BAGIAN BARU: DETAIL PENJELASAN KOORDINAT (CONTOH FRAME PERTAMA)
+    # DETAIL PENJELASAN KOORDINAT
     # ==============================================================================
     print("\n" + "="*60)
     print("DETAIL STRUKTUR DATA (CONTOH: HANYA FRAME KE-0)")

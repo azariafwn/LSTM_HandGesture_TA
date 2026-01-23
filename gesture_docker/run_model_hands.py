@@ -18,10 +18,9 @@ OUTPUT_DIR = "logs_output"
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
-# Ganti nama file agar fresh dan format header baru terbaca
 LOG_FILE = os.path.join(OUTPUT_DIR, "data_pengujian.csv")
 
-# --- TAMBAHAN FITUR BARU: Variabel Global ---
+# --- Variabel Global ---
 CURRENT_RESOLUTION_STR = "?"
 SELECTED_DISTANCE_STR = "Unknown"
 TARGET_GESTURE_STR = "Unknown" # Placeholder untuk target gestur yang akan dipilih
@@ -31,12 +30,12 @@ TARGET_GESTURE_STR = "Unknown" # Placeholder untuk target gestur yang akan dipil
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, mode='w', newline='') as file:
         writer = csv.writer(file)
-        # --- TAMBAHAN FITUR BARU: Tambah Header "Target_Gesture" ---
+        # --- Tambah Header "Target_Gesture" ---
         # Urutan: ..., Resolution, Distance, Target (Seharusnya), Last Command (Realisasi)
         writer.writerow(["Timestamp", "Event", "FPS", "Edge_Latency_ms", "WiFi_Latency_ms", "Total_Latency_ms", "Resolution", "Distance", "Target_Gesture", "Last_Command"])
         # ---------------------------------------------------------------
 
-# --- TAMBAHAN FITUR BARU: Update fungsi log ---
+# --- Update fungsi log ---
 # Menerima parameter 'target_gesture' tambahan
 def log_to_csv(event, fps, edge_ms, wifi_ms, total_ms, resolution, distance, target_gesture, last_cmd_str):
     with open(LOG_FILE, mode='a', newline='') as file:
@@ -61,7 +60,7 @@ ESP4_IP = "0.0.0.0"
 
 print("🚀 [INFO] Memulai Sistem Gesture Control...")
 
-# --- BAGIAN AUTO-DISCOVERY (SAMA) ---
+# --- BAGIAN AUTO-DISCOVERY ---
 class DeviceListener:
     def __init__(self):
         self.devices = {}
@@ -100,7 +99,7 @@ if '4' in found_devices: ESP4_IP = found_devices['4']; print(f"✅ ESP 4: {ESP4_
 print("-" * 40)
 
 # ========================================================
-# --- MEDIAPIPE SETUP (SAMA) ---
+# --- MEDIAPIPE SETUP ---
 # ========================================================
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
@@ -121,14 +120,14 @@ def extract_keypoints(results):
         rh = np.zeros(21*3)
     return rh
 
-# --- LOAD MODEL TFLITE (SAMA) ---
+# --- LOAD MODEL TFLITE ---
 TFLITE_MODEL_PATH = 'model.tflite'
 interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH, num_threads=4)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# --- FUNGSI KIRIM (SAMA) ---
+# --- FUNGSI KIRIM ---
 def send_command(command, target_ip):
     if target_ip == "0.0.0.0": return 0
 
@@ -151,7 +150,7 @@ def send_command(command, target_ip):
         print(f"❌ Error Koneksi")
         return 0
 
-# --- VARIABEL (SAMA) ---
+# --- VARIABEL ---
 actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
 SELECTION_GESTURES = ['close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four']
 ACTION_GESTURES = ['close_to_open_palm', 'open_to_close_palm']
@@ -166,7 +165,7 @@ current_cooldown_limit = COOLDOWN_DURATION
 # --- SETUP KAMERA & RESOLUSI ---
 # ==========================================
 cap = cv2.VideoCapture(0)
-# Atur resolusi tinggi dulu untuk layar seleksi (opsional)
+# Atur resolusi tinggi untuk layar seleksi
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
@@ -212,7 +211,7 @@ print(f"✅ JARAK TERPILIH: {SELECTED_DISTANCE_STR}")
 time.sleep(0.5) # Jeda antar menu
 
 # ==============================================================================
-# --- TAMBAHAN FITUR BARU (MENU 2): LOOP SELEKSI TARGET GESTURE ---
+# --- MENU 2: LOOP SELEKSI TARGET GESTURE ---
 # ==============================================================================
 print("--- MEMULAI MENU 2: SELEKSI TARGET GESTURE ---")
 selecting_target = True
@@ -265,7 +264,7 @@ time.sleep(2)
 prev_time = 0
 fps = 0
 
-# --- INISIALISASI MP HANDS (SAMA) ---
+# --- INISIALISASI MP HANDS ---
 with mp_hands.Hands(
     max_num_hands=1,
     model_complexity=0,
@@ -356,7 +355,7 @@ with mp_hands.Hands(
                         status_str = "ON" if current_action_state == 'AKSI_ON' else "OFF"
                         last_command_str = f"{target_device_id} {status_str}"
 
-                        # --- TAMBAHAN FITUR BARU: Log ke CSV termasuk TARGET GESTURE ---
+                        # --- Log ke CSV termasuk TARGET GESTURE ---
                         # Parameter: ..., resolution, distance, target_gesture, last_command
                         log_to_csv("COMMAND_SENT", fps, edge_latency_ms, wifi_latency_ms, total_latency, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, TARGET_GESTURE_STR, last_command_str)
                         # ----------------------------------------------------------
@@ -402,7 +401,7 @@ with mp_hands.Hands(
         # Jarak
         cv2.putText(image, f'Dist: {SELECTED_DISTANCE_STR}', (image.shape[1] - 220, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 100, 255), 2, cv2.LINE_AA)
-        # --- TAMBAHAN FITUR BARU: Tampilkan Target di Layar Utama ---
+        # --- Tampilkan Target di Layar Utama ---
         cv2.putText(image, f'Target: {TARGET_GESTURE_STR}', (image.shape[1] - 220, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2, cv2.LINE_AA)
         # ------------------------------------------------------------

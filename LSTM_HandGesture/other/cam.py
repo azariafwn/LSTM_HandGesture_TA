@@ -7,7 +7,7 @@ def list_ports():
     """
     print("Mencari kamera yang tersedia (Cek jendela popup)...")
     
-    # Cek index 0 sampai 4 (biasanya cukup)
+    # Cek index 0 sampai 4
     available_ports = []
     
     for index in range(5):

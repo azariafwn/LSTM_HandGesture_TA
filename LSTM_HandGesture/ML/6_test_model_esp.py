@@ -49,7 +49,7 @@ current_action = '...'
 last_sent_action = '...' 
 # -----------------------------------------------------------
 
-prediction_threshold = 0.97 # threshold disesuaikan sama akurasi model (terakhir 97.9%)
+prediction_threshold = 0.97 # threshold disesuaikan dengan akurasi model
 
 cap = cv2.VideoCapture(0)
 
@@ -120,7 +120,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.7, min_tracking_confidence=
             #     ser.write(b'0') # Kirim byte '0' 
             #     print("MENGIRIM SINYAL: 0 (thumbs_up_to_down)")
             
-            # Tentukan sinyal apa yang ingin Anda kirim untuk gestur baru? Misalnya, '2' dan '3'
+            # Tentukan sinyal yang ingin dikirim untuk gestur baru
             if temp_action == 'close_to_open_palm':
                 ser.write(b'1')
                 print("MENGIRIM SINYAL: 1 (close_to_open_palm)")

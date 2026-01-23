@@ -4,7 +4,6 @@ import numpy as np
 import re
 
 # === KONFIGURASI ===
-# PASTIIN PATH INI BENER DI KOMPUTER KAMU
 CSV_FILE_PATH = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/data/data_pengujian.csv'
 LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex'
 TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data/')
@@ -34,10 +33,6 @@ def fmt(val):
 
 # --- PERBAIKAN DI SINI ---
 def clean_label_for_latex(label):
-    """
-    Membersihkan string agar aman jadi nama command LaTeX.
-    ATURAN PENTING: Command LaTeX HANYA boleh huruf (A-Z, a-z), TANPA ANGKA.
-    """
     label_str = str(label)
     
     # Mapping manual untuk mengubah angka menjadi teks
@@ -48,17 +43,15 @@ def clean_label_for_latex(label):
         "70cm": "SeventyCm",
         "480p": "FourEightyP",
         "720p": "SevenTwentyP",
-        # Tambahkan mapping lain jika ada nilai baru yang mengandung angka
-        "Redup": "Redup",   # Sudah aman
-        "Sedang": "Sedang", # Sudah aman
-        "Terang": "Terang"  # Sudah aman
+        "Redup": "Redup",  
+        "Sedang": "Sedang",
+        "Terang": "Terang" 
     }
 
     if label_str in replacements:
         return replacements[label_str]
     else:
         # Fallback: Hapus semua karakter selain huruf
-        # Ini untuk jaga-jaga jika ada data tak terduga
         cleaned = re.sub(r'[^a-zA-Z]', '', label_str)
         # Pastikan huruf pertama kapital (CamelCase)
         return cleaned.capitalize() if cleaned else "Unknown"
@@ -111,8 +104,8 @@ def process_data():
         
         # Pastikan kolom numerik dibaca sebagai angka
         for col in ['FPS', 'Edge_Latency_ms', 'WiFi_Latency_ms', 'Total_Latency_ms']:
-             if col in df.columns:
-                 df[col] = pd.to_numeric(df[col], errors='coerce')
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
     except FileNotFoundError:
         print(f"❌ Error: File {CSV_FILE_PATH} tidak ditemukan. Pastikan path benar.")
@@ -122,8 +115,8 @@ def process_data():
         return
 
     if total_samples == 0:
-         print("⚠️ Data CSV kosong. Tidak ada yang bisa diproses.")
-         return
+        print("⚠️ Data CSV kosong. Tidak ada yang bisa diproses.")
+        return
 
     # ====================================================================
     # BAGIAN 1: STATISTIK GENERAL
@@ -202,7 +195,7 @@ def process_data():
 """
 
     # ====================================================================
-    # BAGIAN 3: GENERATE STATISTIK SPESIFIK PER SKENARIO (FITUR BARU)
+    # BAGIAN 3: GENERATE STATISTIK SPESIFIK PER SKENARIO
     # ====================================================================
     tex_content_scenarios = generate_scenario_stats_latex(df)
 
@@ -216,7 +209,6 @@ def process_data():
         with open(TEX_OUTPUT_PATH, 'w') as f:
             f.write(full_tex_content)
         print(f"✅ Berhasil! Data statistik lengkap disimpan ke:\n{TEX_OUTPUT_PATH}")
-        print("Cek file tersebut untuk melihat nama command baru yang aman untuk LaTeX.")
     except Exception as e:
         print(f"❌ Error saat menyimpan file .tex: {e}")
 

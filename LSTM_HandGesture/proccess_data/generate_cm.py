@@ -7,7 +7,7 @@ import pandas as pd # Import Pandas wajib ada
 # ==========================================
 # KONFIGURASI LABEL KELAS
 # ==========================================
-# Urutan ini PENTING. Harus sama persis dengan yang ada di CSV (Target_Gesture & Last_Command)
+# Urutan HARUS sama persis dengan yang ada di CSV
 CLASS_LABELS = [
     'D1 ON',  'D1 OFF',
     'D2 ON',  'D2 OFF',
@@ -24,7 +24,7 @@ LABEL_TO_CMD = {
 }
 
 # ==========================================
-# KONFIGURASI PATH (SESUAIKAN DENGAN KOMPUTER ANDA)
+# KONFIGURASI PATH
 # ==========================================
 BASE_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex'
 
@@ -37,7 +37,7 @@ LATEX_OUTPUT_DIR = os.path.join(BASE_DIR, 'data')
 LATEX_FILE_PATH = os.path.join(LATEX_OUTPUT_DIR, 'akurasi_pengujian_all.tex')
 os.makedirs(LATEX_OUTPUT_DIR, exist_ok=True)
 
-# PATH KE FILE CSV DATA PENGUJIAN DI RASPI/LAPTOP
+# PATH KE FILE CSV DATA PENGUJIAN
 CSV_PATH = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/data/data_pengujian.csv'
 # -----------------------------------------------------
 
@@ -51,7 +51,6 @@ def generate_manual_cm(data_matrix, title, filename_suffix):
     # Validasi bentuk matriks
     if data_matrix.shape != (expected_size, expected_size):
         print(f"⚠️ WARNING: Ukuran matriks untuk {title} adalah {data_matrix.shape}, seharusnya {expected_size}x{expected_size}. Gambar mungkin tidak akurat.")
-        # Kita tetap lanjut agar tidak crash, tapi hasilnya mungkin aneh
 
     plt.figure(figsize=(10, 8))
     sns.heatmap(data_matrix, annot=True, fmt='d', cmap='Blues', cbar=True,
@@ -88,7 +87,7 @@ def hitung_akurasi_dan_generate_latex(data_matrix, scenario_prefix):
 
     accuracies = []
     for i, label in enumerate(CLASS_LABELS):
-        # 1. Hitung Akurasi Per Kelas (Pakai 1 desimal)
+        # 1. Hitung Akurasi Per Kelas
         if total_per_class[i] > 0:
             acc = (true_positives[i] / total_per_class[i]) * 100
         else:
@@ -97,12 +96,11 @@ def hitung_akurasi_dan_generate_latex(data_matrix, scenario_prefix):
         acc_cmd_name = f"Acc{scenario_prefix}{LABEL_TO_CMD[label]}"
         latex_commands.append(f"\\newcommand{{\\{acc_cmd_name}}}{{{acc:.1f}}}")
 
-        # 2. Hitung Jumlah Sampel Per Kelas (Pakai Integer)
+        # 2. Hitung Jumlah Sampel Per Kelas
         count_cmd_name = f"Count{scenario_prefix}{LABEL_TO_CMD[label]}"
-        # int(...) memastikan tidak ada koma
         latex_commands.append(f"\\newcommand{{\\{count_cmd_name}}}{{{int(total_per_class[i])}}}")
 
-    # 3. Hitung Rata-rata Akurasi Skenario (Pakai 1 desimal)
+    # 3. Hitung Rata-rata Akurasi Skenario
     kelas_yg_ada_data = [acc for i, acc in enumerate(accuracies) if total_per_class[i] > 0]
     if kelas_yg_ada_data:
         avg_acc = np.mean(kelas_yg_ada_data)
@@ -111,21 +109,19 @@ def hitung_akurasi_dan_generate_latex(data_matrix, scenario_prefix):
     avg_cmd_name = f"Acc{scenario_prefix}Avg"
     latex_commands.append(f"\\newcommand{{\\{avg_cmd_name}}}{{{avg_acc:.1f}}}")
 
-    # 4. Hitung Total Sampel Skenario (Pakai Integer)
+    # 4. Hitung Total Sampel Skenario
     total_cmd_name = f"Count{scenario_prefix}Total"
     latex_commands.append(f"\\newcommand{{\\{total_cmd_name}}}{{{int(total_scenario_samples)}}}")
 
-    ### --- Rata-rata Count (UPDATE: DIGANTI JADI INTEGER) ---
+    ### --- Rata-rata Count ---
     num_active_classes = np.sum(total_per_class > 0)
     
     if num_active_classes > 0:
-        # Hasil pembagian ini bisa float (misal 180.0)
         avg_count_per_class = total_scenario_samples / num_active_classes
     else:
         avg_count_per_class = 0
         
     avg_count_cmd_name = f"Count{scenario_prefix}Avg"
-    # DIUBAH DI SINI: Menggunakan int() agar tidak ada .0 di belakang
     latex_commands.append(f"\\newcommand{{\\{avg_count_cmd_name}}}{{{int(avg_count_per_class)}}}")
     ### ------------------------------------
 
@@ -133,7 +129,7 @@ def hitung_akurasi_dan_generate_latex(data_matrix, scenario_prefix):
 # --------------------------------
 
 # ==============================================================================
-# --- FUNGSI MEMBANGUN CM RIIL DARI CSV (SAMA) ---
+# --- FUNGSI MEMBANGUN CM RIIL DARI CSV ---
 # ==============================================================================
 def build_real_cm_from_csv(df, filter_col, filter_val):
     print(f"   [Processing] Memfilter data: {filter_col} == {filter_val}...")
@@ -283,6 +279,5 @@ if __name__ == "__main__":
         with open(LATEX_FILE_PATH, "w") as f:
             f.write(full_latex_content)
         print(f"\n✅ SUKSES! File data LaTeX berhasil diperbarui di:\n{LATEX_FILE_PATH}")
-        print("Sekarang command \\Count...Avg sudah menjadi integer (tanpa koma).")
     except Exception as e:
         print(f"\n❌ ERROR saat menulis file LaTeX: {e}")

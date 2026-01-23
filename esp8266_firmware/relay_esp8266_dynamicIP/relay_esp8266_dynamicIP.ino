@@ -1,6 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h> // <-- WAJIB: Tambahkan Library ini
+#include <ESP8266mDNS.h>
 
 const char* ssid = "zaaf";
 const char* password = "12345678";
@@ -93,5 +93,5 @@ void setup() {
 
 void loop() {
   server.handleClient();
-  MDNS.update(); // <-- WAJIB: Update mDNS di loop
+  MDNS.update();
 }

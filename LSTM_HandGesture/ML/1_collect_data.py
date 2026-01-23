@@ -4,12 +4,12 @@ import os
 import time
 import mediapipe as mp
 
-# --- TAMBAHAN 2: Inisialisasi MediaPipe Hands ---
+# --- Inisialisasi MediaPipe Hands ---
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 # ----------------------------------------------
 
-# --- PENGATURAN UTAMA (TETAP SAMA) ---
+# --- PENGATURAN UTAMA ---
 DATA_PATH = os.path.join('MP_Data') 
 # actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
 # actions = np.array(['close_to_open_palm', 'open_to_close_palm'])
@@ -30,7 +30,7 @@ if not cap.isOpened():
     print("Error: Tidak bisa membuka kamera.")
     exit()
 
-# --- TAMBAHAN 3: Gunakan 'with' block untuk model MediaPipe ---
+# --- Gunakan 'with' block untuk model MediaPipe ---
 with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
     for action in actions:
         action_path = os.path.join(DATA_PATH, action)
@@ -46,7 +46,7 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
             ret, frame = cap.read()
             if not ret: break
             
-            # --- TAMBAHAN 4: Deteksi dan gambar landmark untuk visualisasi ---
+            # --- Deteksi dan gambar landmark untuk visualisasi ---
             image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = hands.process(image_rgb)
             debug_image = frame.copy() # Gambar di salinan agar frame asli tetap bersih
@@ -99,7 +99,7 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
                 cv2.imshow('Collect Gesture Data', debug_image)
                 
-                # --- PENTING: Yang disimpan adalah 'frame' asli, bukan 'debug_image' ---
+                # --- Yang disimpan adalah 'frame' asli, bukan 'debug_image' ---
                 frame_path = os.path.join(sequence_path, f"{frame_num}.jpg")
                 cv2.imwrite(frame_path, frame)
                 # --------------------------------------------------------------------

@@ -52,7 +52,6 @@ print("-------------------------------------------------")
 import os
 
 # ================= KONFIGURASI PATH =================
-# Ganti path ini agar mengarah ke folder root proyek LaTeX Anda
 LATEX_PROJECT_PATH = r"C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex/data"
 
 # Nama file model di folder Python saat ini
@@ -92,7 +91,6 @@ else:
 print(f"Reduksi dihitung: {reduction_pct_str}%")
 
 # 3. Siapkan konten file .tex
-# Kita membuat command LaTeX baru: \SizeHfive, \SizeTflite, dan \ReductionPct
 tex_content = f"""% File ini digenerate otomatis oleh script Python.
 % JANGAN DIEDIT MANUAL. Jalankan script Python untuk update data.
 
