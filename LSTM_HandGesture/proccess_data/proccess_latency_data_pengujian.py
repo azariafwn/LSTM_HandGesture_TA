@@ -3,7 +3,7 @@ import os
 import numpy as np
 import re
 
-# === KONFIGURASI ===
+# === KONFIGURASI PATH ===
 CSV_FILE_PATH = 'C:/zafaa/kuliah/SEMESTER7/PRATA/code_gesture/LSTM_HandGesture/data/data_pengujian.csv'
 LATEX_PROJECT_DIR = 'C:/zafaa/kuliah/SEMESTER7/PRATA/BukuTATekkomLatex'
 TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data/')
@@ -18,10 +18,11 @@ METRICS_TO_ANALYZE = {
 }
 
 # Definisi kolom skenario di CSV dan prefix untuk command LaTeX-nya
+# UPDATE: Kolom Light_Intensity_Lux sudah diaktifkan
 SCENARIO_COLUMNS = {
     'Distance': 'Dist',    
     'Resolution': 'Res',   
-    # 'Lighting': 'Light'  # Uncomment nanti jika data cahaya sudah ada
+    'Light_Intensity_Lux': 'Light'
 }
 
 
@@ -31,18 +32,24 @@ def fmt(val):
             return "0.00"
     return f"{val:.2f}"
 
-# --- PERBAIKAN DI SINI ---
+# --- UPDATE: Mapping Nilai Lux ke Nama Command yang Rapi ---
 def clean_label_for_latex(label):
-    label_str = str(label)
+    label_str = str(label).strip() # Hapus spasi jika ada
     
-    # Mapping manual untuk mengubah angka menjadi teks
-    # Agar nama command tetap unik dan terbaca
+    # Mapping manual untuk mengubah nilai spesifik menjadi teks
     replacements = {
+        # Variasi Jarak
         "30cm": "ThirtyCm",
         "50cm": "FiftyCm",
         "70cm": "SeventyCm",
+        # Variasi Resolusi
         "480p": "FourEightyP",
         "720p": "SevenTwentyP",
+        # Variasi Cahaya (Numerik ke Teks)
+        "30": "Redup",
+        "150": "Sedang",
+        "400": "Terang",
+        # Fallback untuk teks cahaya lama (jika masih ada)
         "Redup": "Redup",  
         "Sedang": "Sedang",
         "Terang": "Terang" 
@@ -51,14 +58,14 @@ def clean_label_for_latex(label):
     if label_str in replacements:
         return replacements[label_str]
     else:
-        # Fallback: Hapus semua karakter selain huruf
-        cleaned = re.sub(r'[^a-zA-Z]', '', label_str)
+        # Fallback: Hapus semua karakter selain huruf dan angka
+        cleaned = re.sub(r'[^a-zA-Z0-9]', '', label_str)
         # Pastikan huruf pertama kapital (CamelCase)
         return cleaned.capitalize() if cleaned else "Unknown"
-# -------------------------
+# ----------------------------------------------------------
 
 def generate_scenario_stats_latex(df):
-    """Fungsi baru untuk menghasilkan statistik spesifik per skenario."""
+    """Fungsi untuk menghasilkan statistik spesifik per skenario."""
     latex_output = "\n% ==================================================\n"
     latex_output += "% STATISTIK SPESIFIK PER SKENARIO (RATA-RATA)\n"
     latex_output += "% Digunakan untuk tabel perbandingan di Bab Pengujian\n"
@@ -77,7 +84,7 @@ def generate_scenario_stats_latex(df):
         grouped = df.groupby(col_name)
         
         for group_val, group_df in grouped:
-            # Gunakan fungsi pembersih yang baru
+            # Gunakan fungsi pembersih yang sudah diupdate
             clean_val = clean_label_for_latex(group_val) 
             latex_output += f"% Group: {group_val} (Sampel: {len(group_df)})\n"
             
@@ -86,6 +93,7 @@ def generate_scenario_stats_latex(df):
                 mean_val = group_df[metric_col].mean()
                 
                 # Buat nama command: \PrefixMetricMeanPrefixSkenarioValueSkenarioBersih
+                # Contoh: \FPSMeanLightRedup, \TotalMeanLightTerang
                 cmd_name = f"{metric_prefix}Mean{prefix}{clean_val}"
                 latex_output += f"\\newcommand{{\\{cmd_name}}}{{{fmt(mean_val)}}}\n"
             
@@ -106,6 +114,10 @@ def process_data():
         for col in ['FPS', 'Edge_Latency_ms', 'WiFi_Latency_ms', 'Total_Latency_ms']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Pastikan kolom Lux juga dibaca sebagai angka (jika ada)
+        if 'Light_Intensity_Lux' in df.columns:
+             df['Light_Intensity_Lux'] = pd.to_numeric(df['Light_Intensity_Lux'], errors='coerce')
 
     except FileNotFoundError:
         print(f"❌ Error: File {CSV_FILE_PATH} tidak ditemukan. Pastikan path benar.")
@@ -209,6 +221,7 @@ def process_data():
         with open(TEX_OUTPUT_PATH, 'w') as f:
             f.write(full_tex_content)
         print(f"✅ Berhasil! Data statistik lengkap disimpan ke:\n{TEX_OUTPUT_PATH}")
+        print("Contoh command baru untuk cahaya: \\FPSMeanLightRedup, \\TotalMeanLightTerang, dll.")
     except Exception as e:
         print(f"❌ Error saat menyimpan file .tex: {e}")
 
