@@ -6,6 +6,13 @@ if [ ! -f .env ]; then
     cp .env.example .env
 fi
 
+if ! grep -q "DB_DATABASE_LOGS" .env; then
+    echo "Injecting Logs Database Config..."
+    echo "" >> .env
+    echo "DB_CONNECTION_LOGS=sqlite" >> .env
+    echo "DB_DATABASE_LOGS=/var/www/storage/logs_shared/logs_raspi.db" >> .env
+fi
+
 # 2. Setup Folder Permissions (Biar gak error permission denied)
 chmod -R 777 storage bootstrap/cache
 chmod -R 777 storage/logs_shared

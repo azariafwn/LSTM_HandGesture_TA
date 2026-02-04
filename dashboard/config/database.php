@@ -47,9 +47,15 @@ return [
         'sqlite_logs' => [
             'driver' => 'sqlite',
             'url' => env('DATABASE_URL'),
-            'database' => env('DB_DATABASE_LOGS'), # Ini ngambil dari .env tadi
+            
+            // --- GANTI BARIS INI ---
+            // Kita tambahkan '/var/www/...' sebagai parameter kedua (Default Value).
+            // Jadi kalau env-nya NULL/Kosong, dia otomatis pakai path ini.
+            'database' => env('DB_DATABASE_LOGS', '/var/www/storage/logs_shared/logs_raspi.db'),
+            // -----------------------
+            
             'prefix' => '',
-            'foreign_key_constraints' => false, # Matikan foreign key biar ga ribet
+            'foreign_key_constraints' => false,
         ],
 
         'mysql' => [
