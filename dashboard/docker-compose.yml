@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dashboard_laravel
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      # 1. Mount kodingan Laravel saat ini
+      - ./:/var/www
+      
+      # 2. MOUNT FOLDER LOGS DARI TETANGGA (PENTING!)
+      # Asumsinya folder 'dashboard' dan 'flask_raspi' sejajar
+      - ../flask_raspi/logs_output:/var/www/storage/logs_shared
+    ports:
+      - "8000:8000" # Port Laravel
+      - "5173:5173" # Port Vite (React Hot Reload)
+    # Perintah agar server tetap nyala dan kita bisa masuk ke dalamnya
+    command: php artisan serve --host=0.0.0.0 --port=8000

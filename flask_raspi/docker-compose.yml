@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  gesture-flask:
+    build: .
+    container_name: gesture_flask_container
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    devices:
+      - "/dev/video0:/dev/video0"  # Mapping kamera Raspi
+    volumes:
+      - ./logs_output:/app/logs_output # Mapping folder logs agar bisa diakses dari luar container
+    privileged: true  # Memberikan akses hardware penuh (opsional tapi disarankan untuk kamera)

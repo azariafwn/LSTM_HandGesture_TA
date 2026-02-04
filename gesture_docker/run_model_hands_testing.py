@@ -20,27 +20,31 @@ if not os.path.exists(OUTPUT_DIR):
 
 LOG_FILE = os.path.join(OUTPUT_DIR, "data_pengujian.csv")
 
-# --- SETTING DEFAULT (HARDCODED) ---
-# Menggantikan menu interaktif
-CURRENT_RESOLUTION_STR = "480p"
-SELECTED_DISTANCE_STR = "50cm"
-SELECTED_LIGHT_LUX = 150
-TARGET_GESTURE_STR = "Realtime" # Default karena bukan mode pengujian target
+# --- Variabel Global untuk Logging ---
+CURRENT_RESOLUTION_STR = "?"
+SELECTED_DISTANCE_STR = "Unknown"
+SELECTED_LIGHT_LUX = 0  # Variabel baru untuk menyimpan nilai Lux (angka)
+TARGET_GESTURE_STR = "Unknown"
 # -----------------------------------------------------
 
-# Buat header CSV jika file belum ada
+# Buat header CSV jika file belum ada (UPDATE HEADER)
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, mode='w', newline='') as file:
         writer = csv.writer(file)
-        # Header mencakup parameter lingkungan
+        # --- Tambah Header "Light_Intensity_Lux" di akhir ---
+        # Urutan: ..., Resolution, Distance, Target, Last Command, Light Lux
         writer.writerow(["Timestamp", "Event", "FPS", "Edge_Latency_ms", "WiFi_Latency_ms", "Total_Latency_ms", "Resolution", "Distance", "Target_Gesture", "Last_Command", "Light_Intensity_Lux"])
+        # ---------------------------------------------------------------
 
-# --- Fungsi log ke CSV ---
+# --- Update fungsi log ---
+# Menerima parameter 'light_lux' tambahan
 def log_to_csv(event, fps, edge_ms, wifi_ms, total_ms, resolution, distance, target_gesture, last_cmd_str, light_lux):
     with open(LOG_FILE, mode='a', newline='') as file:
         writer = csv.writer(file)
         now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        # Masukkan data light_lux ke baris CSV di paling akhir
         writer.writerow([now, event, f"{fps:.2f}", f"{edge_ms:.2f}", f"{wifi_ms:.2f}", f"{total_ms:.2f}", resolution, distance, target_gesture, last_cmd_str, light_lux])
+# ---------------------------------------------
 
 # ==========================================
 # --- KONFIGURASI SISTEM ---
@@ -55,7 +59,7 @@ ESP2_IP = "0.0.0.0"
 ESP3_IP = "0.0.0.0"
 ESP4_IP = "0.0.0.0"
 
-print("🚀 [INFO] Memulai Sistem Gesture Control (Mode Produksi)...")
+print("🚀 [INFO] Memulai Sistem Gesture Control...")
 
 # --- BAGIAN AUTO-DISCOVERY ---
 class DeviceListener:
@@ -159,20 +163,133 @@ last_valid_time = 0
 current_cooldown_limit = COOLDOWN_DURATION
 
 # ==========================================
-# --- SETUP KAMERA (FORCE 480p) ---
+# --- SETUP KAMERA & RESOLUSI ---
 # ==========================================
 cap = cv2.VideoCapture(0)
-# Paksa resolusi 480p sesuai default
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+# Atur resolusi tinggi untuk layar seleksi (Opsional)
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
 
-print(f"\n[INFO SETTING] Mode: Normal")
-print(f"[INFO SETTING] Resolusi: {CURRENT_RESOLUTION_STR}")
-print(f"[INFO SETTING] Jarak Default: {SELECTED_DISTANCE_STR}")
-print(f"[INFO SETTING] Cahaya Default: {SELECTED_LIGHT_LUX} Lux")
+# --- Tentukan String Resolusi ---
+h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+if h == 480: CURRENT_RESOLUTION_STR = "480p"
+elif h == 720: CURRENT_RESOLUTION_STR = "720p"
+else: CURRENT_RESOLUTION_STR = f"{h}p"
+
+print(f"\n[INFO KAMERA] Resolusi Aktif: {CURRENT_RESOLUTION_STR}")
+time.sleep(1)
+
+# ==============================================================================
+# --- MENU 1: LOOP SELEKSI JARAK ---
+# ==============================================================================
+print("--- MEMULAI MENU 1: SELEKSI JARAK ---")
+selecting_distance = True
+while selecting_distance and cap.isOpened():
+    ret, frame = cap.read()
+    if not ret: break
+    frame = cv2.flip(frame, 1)
+
+    # Judul Menu 1
+    cv2.putText(frame, "MENU 1: PILIH JARAK PENGUJIAN", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 3)
+    cv2.putText(frame, "MENU 1: PILIH JARAK PENGUJIAN", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+
+    # Pilihan
+    cv2.putText(frame, "[1] Jarak DEKAT (30cm)", (80, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    cv2.putText(frame, "[2] Jarak SEDANG (50cm)",(80, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+    cv2.putText(frame, "[3] Jarak JAUH (70cm)",  (80, 290), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
+
+    cv2.imshow('Raspi Gesture Control', frame)
+    key = cv2.waitKey(10) & 0xFF
+
+    if key == ord('1'): SELECTED_DISTANCE_STR = "30cm"; selecting_distance = False
+    elif key == ord('2'): SELECTED_DISTANCE_STR = "50cm"; selecting_distance = False
+    elif key == ord('3'): SELECTED_DISTANCE_STR = "70cm"; selecting_distance = False
+    elif key == ord('q'): cap.release(); cv2.destroyAllWindows(); exit()
+
+print(f"✅ JARAK TERPILIH: {SELECTED_DISTANCE_STR}")
+time.sleep(0.5) # Jeda antar menu
+
+# ==============================================================================
+# --- MENU 2: LOOP SELEKSI INTENSITAS CAHAYA (BARU) ---
+# ==============================================================================
+print("--- MEMULAI MENU 2: SELEKSI INTENSITAS CAHAYA ---")
+selecting_light = True
+while selecting_light and cap.isOpened():
+    ret, frame = cap.read()
+    if not ret: break
+    frame = cv2.flip(frame, 1)
+
+    # Judul Menu 2
+    cv2.putText(frame, "MENU 2: PILIH INTENSITAS CAHAYA", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 3)
+    cv2.putText(frame, "MENU 2: PILIH INTENSITAS CAHAYA", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2) # Warna Kuning
+    cv2.putText(frame, f"Jarak terpilih: {SELECTED_DISTANCE_STR}", (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+
+
+    # Pilihan
+    cv2.putText(frame, "[1] REDUP (±30 Lux)",   (80, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 100, 255), 2)
+    cv2.putText(frame, "[2] SEDANG (±150 Lux)", (80, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+    cv2.putText(frame, "[3] TERANG (±400 Lux)", (80, 290), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    cv2.imshow('Raspi Gesture Control', frame)
+    key = cv2.waitKey(10) & 0xFF
+
+    # Simpan nilai Lux sebagai integer
+    if key == ord('1'): SELECTED_LIGHT_LUX = 30; selecting_light = False
+    elif key == ord('2'): SELECTED_LIGHT_LUX = 150; selecting_light = False
+    elif key == ord('3'): SELECTED_LIGHT_LUX = 400; selecting_light = False
+    elif key == ord('q'): cap.release(); cv2.destroyAllWindows(); exit()
+
+print(f"✅ CAHAYA TERPILIH: {SELECTED_LIGHT_LUX} Lux")
+time.sleep(0.5) # Jeda antar menu
+
+# ==============================================================================
+# --- MENU 3: LOOP SELEKSI TARGET GESTURE (DIGESER JADI MENU 3) ---
+# ==============================================================================
+print("--- MEMULAI MENU 3: SELEKSI TARGET GESTURE ---")
+selecting_target = True
+while selecting_target and cap.isOpened():
+    ret, frame = cap.read()
+    if not ret: break
+    frame = cv2.flip(frame, 1)
+
+    # Judul Menu 3
+    cv2.putText(frame, "MENU 3: PILIH TARGET GESTURE (YG AKAN DIUJI)", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 3)
+    cv2.putText(frame, "MENU 3: PILIH TARGET GESTURE (YG AKAN DIUJI)", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+    # Tampilkan info pilihan sebelumnya
+    cv2.putText(frame, f"Jarak: {SELECTED_DISTANCE_STR} | Cahaya: {SELECTED_LIGHT_LUX} Lux", (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+
+    # Pilihan Kolom Kiri (ON)
+    cv2.putText(frame, "[1] D1 ON",  (50, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, "[3] D2 ON",  (50, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    cv2.putText(frame, "[5] D3 ON",  (50, 300), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+    cv2.putText(frame, "[7] D4 ON",  (50, 370), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+
+    # Pilihan Kolom Kanan (OFF)
+    cv2.putText(frame, "[2] D1 OFF", (300, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 0), 2)
+    cv2.putText(frame, "[4] D2 OFF", (300, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 200), 2)
+    cv2.putText(frame, "[6] D3 OFF", (300, 300), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 100, 255), 2)
+    cv2.putText(frame, "[8] D4 OFF", (300, 370), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 0, 255), 2)
+
+    cv2.imshow('Raspi Gesture Control', frame)
+    key = cv2.waitKey(10) & 0xFF
+
+    # Logika Pemilihan Target (Angka 1-8)
+    if key == ord('1'): TARGET_GESTURE_STR = "D1 ON"; selecting_target = False
+    elif key == ord('2'): TARGET_GESTURE_STR = "D1 OFF"; selecting_target = False
+    elif key == ord('3'): TARGET_GESTURE_STR = "D2 ON"; selecting_target = False
+    elif key == ord('4'): TARGET_GESTURE_STR = "D2 OFF"; selecting_target = False
+    elif key == ord('5'): TARGET_GESTURE_STR = "D3 ON"; selecting_target = False
+    elif key == ord('6'): TARGET_GESTURE_STR = "D3 OFF"; selecting_target = False
+    elif key == ord('7'): TARGET_GESTURE_STR = "D4 ON"; selecting_target = False
+    elif key == ord('8'): TARGET_GESTURE_STR = "D4 OFF"; selecting_target = False
+    elif key == ord('q'): cap.release(); cv2.destroyAllWindows(); exit()
+
+print(f"✅ TARGET TERPILIH: {TARGET_GESTURE_STR}")
 print("\nMemulai deteksi gestur dalam 2 detik...")
 time.sleep(2)
+# ==============================================================================
+
 
 # ==========================================
 # --- MAIN LOOP GESTURE DETECTION ---
@@ -181,6 +298,7 @@ time.sleep(2)
 prev_time = 0
 fps = 0
 
+# --- INISIALISASI MP HANDS ---
 with mp_hands.Hands(
     max_num_hands=1,
     model_complexity=0,
@@ -271,7 +389,8 @@ with mp_hands.Hands(
                         status_str = "ON" if current_action_state == 'AKSI_ON' else "OFF"
                         last_command_str = f"{target_device_id} {status_str}"
 
-                        # --- Log ke CSV menggunakan nilai DEFAULT ---
+                        # --- Log ke CSV termasuk TARGET GESTURE dan LIGHT ---
+                        # Parameter: ..., resolution, distance, target_gesture, last_command, light_lux
                         log_to_csv("COMMAND_SENT", fps, edge_latency_ms, wifi_latency_ms, total_latency, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, TARGET_GESTURE_STR, last_command_str, SELECTED_LIGHT_LUX)
                         # ----------------------------------------------------------
 
@@ -309,13 +428,20 @@ with mp_hands.Hands(
         state_text = f'STATE: {current_action_state}' if current_action_state else 'STATE: Menunggu'
         cv2.putText(image, state_text, (15, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
 
-        # --- Info Pojok Kanan Atas (Tampilkan nilai default) ---
+        # --- Info Pojok Kanan Atas (UPDATE) ---
+        # Resolusi
         cv2.putText(image, f'Res: {CURRENT_RESOLUTION_STR}', (image.shape[1] - 220, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2, cv2.LINE_AA)
+        # Jarak
         cv2.putText(image, f'Dist: {SELECTED_DISTANCE_STR}', (image.shape[1] - 220, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 100, 255), 2, cv2.LINE_AA)
+        # Cahaya (BARU)
         cv2.putText(image, f'Light: {SELECTED_LIGHT_LUX} Lux', (image.shape[1] - 220, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2, cv2.LINE_AA)
+        # Target
+        cv2.putText(image, f'Target: {TARGET_GESTURE_STR}', (image.shape[1] - 220, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2, cv2.LINE_AA)
+        # ------------------------------------------------------------
 
         cv2.putText(image, f'FPS: {int(fps)}', (20, 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
