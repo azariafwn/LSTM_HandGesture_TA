@@ -7,10 +7,10 @@ import time
 import requests
 import socket
 import csv
-import sqlite3 # <--- TAMBAHAN BARU
+import sqlite3
 import datetime
 from requests.exceptions import ConnectionError
-from flask import Flask, Response, render_template_string
+from flask import Flask, Response, render_template_string, request, jsonify
 from zeroconf import ServiceBrowser, Zeroconf
 
 # ==========================================
@@ -24,12 +24,13 @@ app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TFLITE_MODEL_PATH = os.path.join(BASE_DIR, 'model.tflite')
 
+# Folder Output untuk Logs (Shared Volume dengan Laravel)
 OUTPUT_DIR = os.path.join(BASE_DIR, "logs_output")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 LOG_FILE = os.path.join(OUTPUT_DIR, "data_pengujian_raspi.csv")
-DB_FILE = os.path.join(OUTPUT_DIR, "logs_raspi.db") # <--- DATABASE FILE
+DB_FILE = os.path.join(OUTPUT_DIR, "logs_raspi.db") 
 
 # Setting Default
 CURRENT_RESOLUTION_STR = "480p"
@@ -48,7 +49,7 @@ def init_db():
     try:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        # Buat tabel jika belum ada
+        # Buat tabel logs agar Laravel bisa baca
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS activity_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +76,7 @@ def init_db():
 init_db()
 
 def log_to_data(event, fps, edge_ms, wifi_ms, total_ms, resolution, distance, target_gesture, last_cmd_str, light_lux):
-    now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Format DateTime SQL
     
     # 1. Simpan ke CSV (Backup Legacy)
     try:
@@ -305,8 +306,9 @@ def generate_frames():
                             print("⚠️ ESP IP belum ditemukan!")
                         
                         status_str = "ON" if current_action_state == 'AKSI_ON' else "OFF"
-                        # GANTI FUNGSI LOG KE YANG BARU (DB + CSV)
-                        log_to_data("COMMAND_SENT", fps, edge_latency_ms, wifi_latency_ms, edge_latency_ms + wifi_latency_ms, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, temp_action, f"{target_device_id} {status_str}", SELECTED_LIGHT_LUX)
+                        
+                        # Log ke SQLite agar Dashboard Update
+                        log_to_data("GESTURE_CMD", fps, edge_latency_ms, wifi_latency_ms, edge_latency_ms + wifi_latency_ms, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, temp_action, f"{target_device_id} {status_str}", SELECTED_LIGHT_LUX)
                         
                         final_command_sent = True
                         last_valid_time = current_time_for_logic
@@ -375,6 +377,46 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+# ==========================================
+# --- API BARU UNTUK KONTROL MANUAL ---
+# ==========================================
+@app.route('/api/manual_command', methods=['POST'])
+def manual_command_api():
+    try:
+        # 1. Terima Data JSON dari Laravel
+        data = request.json
+        device_id = data.get('device_id') # Contoh: "D1"
+        command = data.get('command')     # Contoh: "ON" atau "OFF"
+        
+        print(f"🔔 [MANUAL API] Request: {device_id} -> {command}")
+
+        # 2. Tentukan IP Target
+        target_ip = "0.0.0.0"
+        cmd_prefix = ""
+        if device_id == "D1": target_ip = ESP1_IP; cmd_prefix = "1"
+        elif device_id == "D2": target_ip = ESP2_IP; cmd_prefix = "2"
+        elif device_id == "D3": target_ip = ESP3_IP; cmd_prefix = "3"
+        elif device_id == "D4": target_ip = ESP4_IP; cmd_prefix = "4"
+        
+        status_suffix = "1" if command == "ON" else "0"
+        real_cmd = cmd_prefix + status_suffix
+
+        # 3. Kirim ke Hardware
+        wifi_latency = 0
+        if target_ip != "0.0.0.0":
+            wifi_latency = send_command(real_cmd, target_ip)
+        else:
+            print(f"⚠️ IP untuk {device_id} tidak ditemukan!")
+
+        # 4. Log ke Database (PENTING BIAR DASHBOARD UPDATE)
+        log_to_data("MANUAL_BTN", 0, 0, wifi_latency, wifi_latency, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, "Manual_Click", f"{device_id} {command}", SELECTED_LIGHT_LUX)
+        
+        return jsonify({"status": "success", "message": f"Executed {real_cmd} on {target_ip}"}), 200
+
+    except Exception as e:
+        print(f"❌ [MANUAL ERROR] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

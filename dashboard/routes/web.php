@@ -20,6 +20,10 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 // -------------------------
 
+Route::post('/device/control', [DashboardController::class, 'controlDevice'])
+    ->name('device.control')
+    ->middleware(['auth']);
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

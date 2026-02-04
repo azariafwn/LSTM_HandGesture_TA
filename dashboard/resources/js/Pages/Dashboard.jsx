@@ -1,39 +1,88 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Dashboard({ auth, logs }) {
-    const [streamUrl, setStreamUrl] = useState('');
+    const [streamUrl, setStreamUrl] = useState(null); // Default null biar ga langsung request
     const [isSyncing, setIsSyncing] = useState(false);
     const [darkMode, setDarkMode] = useState(true);
+    const [processingDevice, setProcessingDevice] = useState(null);
+    const [isStreamError, setIsStreamError] = useState(false); // State untuk handle error stream
 
     const formatTime = (timestamp) => {
+        if (!timestamp) return "-";
         try {
             const date = new Date(timestamp);
+            if (isNaN(date.getTime())) {
+                if (typeof timestamp === 'string' && timestamp.includes(' ')) {
+                    return timestamp.split(' ')[1];
+                }
+                return timestamp;
+            }
             return date.toLocaleTimeString('id-ID', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit',
-                hour12: false 
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
             });
-        } catch (e) {
-            return "-";
-        }
+        } catch (e) { return timestamp; }
+    };
+
+    // --- FUNGSI LOAD STREAM (DIPISAH BIAR BISA DIPANGGIL ULANG) ---
+    const loadStream = () => {
+        setIsStreamError(false); // Reset error dulu
+        // Tambahkan timestamp biar browser anggap ini video baru
+        setStreamUrl(`http://${window.location.hostname}:5000/video_feed?t=${Date.now()}`);
     };
 
     useEffect(() => {
-        setStreamUrl(`http://${window.location.hostname}:5000/video_feed`);
+        // --- FIX 1: DELAY AWAL ---
+        // Kasih napas 500ms setelah F5 sebelum minta video, biar socket lama putus dulu
+        const initialTimer = setTimeout(() => {
+            loadStream();
+        }, 500);
+
+        // --- INTERVAL LOGS ---
         const interval = setInterval(() => {
-            setIsSyncing(true);
-            router.reload({
-                only: ['logs'],
-                preserveScroll: true,
-                preserveState: true,
-                onFinish: () => setIsSyncing(false),
-            });
-        }, 200); 
-        return () => clearInterval(interval);
+            if (document.visibilityState === 'visible') {
+                setIsSyncing(true);
+                router.reload({
+                    only: ['logs'],
+                    preserveScroll: true,
+                    preserveState: true,
+                    onFinish: () => setIsSyncing(false),
+                });
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(interval);
+        };
     }, []);
+
+    // --- FIX 2: AUTO RETRY KALAU ERROR ---
+    const handleStreamError = () => {
+        if (!isStreamError) {
+            setIsStreamError(true); // Tandai error biar UI bisa bereaksi (misal tampilin loading)
+            console.log("Stream putus, mencoba reconnect dalam 1 detik...");
+            
+            // Coba connect lagi setelah 1 detik
+            setTimeout(() => {
+                loadStream(); 
+            }, 1000);
+        }
+    };
+
+    // ... (Bagian handleManualRefresh, handleManualControl, getDeviceStatuses SAMA) ...
+    const handleManualRefresh = () => {
+        setIsSyncing(true);
+        router.reload({ only: ['logs'], preserveScroll: true, preserveState: true, onFinish: () => setIsSyncing(false) });
+    };
+
+    const handleManualControl = (deviceId, action) => {
+        setProcessingDevice(deviceId);
+        router.post('/device/control', { device: deviceId, action: action }, {
+            preserveScroll: true, preserveState: true, onFinish: () => setProcessingDevice(null),
+        });
+    };
 
     const initialStatus = { D1: 'OFF', D2: 'OFF', D3: 'OFF', D4: 'OFF' };
     const getDeviceStatuses = () => {
@@ -48,7 +97,6 @@ export default function Dashboard({ auth, logs }) {
         });
         return currentStatus;
     };
-
     const deviceStatus = getDeviceStatuses();
 
     const theme = {
@@ -63,56 +111,47 @@ export default function Dashboard({ auth, logs }) {
         headerBorder: darkMode ? 'border-slate-800/50' : 'border-gray-300'
     };
 
-    const DeviceCard = ({ name, status }) => (
+    const DeviceCard = ({ id, name, status }) => (
         <div className={`relative group p-4 sm:p-5 rounded-xl border transition-all duration-300 
             ${status === 'ON' 
                 ? (darkMode ? 'bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.15)]' : 'bg-blue-100 border-blue-400 shadow-lg')
                 : `${theme.cardBg} ${theme.cardBorder}`
-            } flex flex-col items-center justify-center backdrop-blur-sm`}>
-            
-            <div className={`absolute top-3 right-3 w-2 sm:w-3 h-2 sm:h-3 rounded-full ${status === 'ON' ? 'bg-cyan-400 animate-pulse' : 'bg-slate-500'}`}></div>
-
-            <div className={`font-mono text-xs sm:text-sm tracking-widest mb-1 sm:mb-2 font-bold ${status === 'ON' ? (darkMode ? 'text-cyan-100' : 'text-blue-900') : (darkMode ? 'text-slate-500' : 'text-gray-500')}`}>
-                {name.toUpperCase()}
+            } flex flex-col items-center justify-between backdrop-blur-sm h-full min-h-[160px]`}>
+            <div className={`absolute top-3 right-3 w-2 sm:w-3 h-2 sm:h-3 rounded-full ${status === 'ON' ? 'bg-cyan-400 animate-pulse' : 'bg-slate-600'}`}></div>
+            <div className="flex flex-col items-center mt-2">
+                <div className={`font-mono text-xs sm:text-sm tracking-widest mb-1 sm:mb-2 font-bold ${status === 'ON' ? (darkMode ? 'text-cyan-100' : 'text-blue-900') : (darkMode ? 'text-slate-500' : 'text-gray-500')}`}>
+                    {name.toUpperCase()}
+                </div>
+                <div className={`text-xl sm:text-2xl font-bold font-mono tracking-tighter mb-4 ${status === 'ON' ? (darkMode ? 'text-cyan-400' : 'text-blue-600') : (darkMode ? 'text-slate-600' : 'text-gray-400')}`}>
+                    {status === 'ON' ? 'ONLINE' : 'OFFLINE'}
+                </div>
             </div>
-            
-            <div className={`text-xl sm:text-2xl font-bold font-mono tracking-tighter ${status === 'ON' ? (darkMode ? 'text-cyan-400' : 'text-blue-600') : (darkMode ? 'text-slate-600' : 'text-gray-400')}`}>
-                {status === 'ON' ? 'ONLINE' : 'OFFLINE'}
+            <div className="flex gap-2 w-full mt-auto">
+                <button onClick={() => handleManualControl(id, 'ON')} disabled={processingDevice === id} className={`flex-1 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all ${darkMode ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800 hover:bg-emerald-800 hover:text-emerald-200' : 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'} disabled:opacity-50`}>ON</button>
+                <button onClick={() => handleManualControl(id, 'OFF')} disabled={processingDevice === id} className={`flex-1 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all ${darkMode ? 'bg-rose-900/40 text-rose-400 border border-rose-800 hover:bg-rose-800 hover:text-rose-200' : 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200'} disabled:opacity-50`}>OFF</button>
             </div>
+            {processingDevice === id && <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div></div>}
         </div>
     );
 
     return (
         <AuthenticatedLayout user={auth.user} header={null}>
             <Head title="Dashboard" />
-
             <div className={`min-h-screen font-mono selection:bg-cyan-500 selection:text-black transition-colors duration-500 ${theme.bg} ${theme.text}`}>
-                
-                {/* Custom Header: Responsive Flex-Col di Mobile */}
+                {/* Header */}
                 <div className={`max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 pb-4 sm:pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end border-b ${theme.headerBorder} mb-6 sm:mb-8 gap-4 sm:gap-0`}>
                     <div>
-                        <h1 className="text-2xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tighter">
-                            SYSTEM_DASHBOARD
-                        </h1>
+                        <h1 className="text-2xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tighter">SYSTEM_DASHBOARD</h1>
                         <p className={`text-xs sm:text-sm mt-1 tracking-widest ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>SECURE CONNECTION ESTABLISHED</p>
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                         {/* Tombol Dark Mode */}
-                         <button 
-                            onClick={() => setDarkMode(!darkMode)}
-                            className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg border transition text-[10px] sm:text-xs font-bold tracking-wider w-full sm:w-auto text-center
-                                ${darkMode 
-                                    ? 'border-slate-700 hover:border-cyan-500 text-slate-400 hover:text-cyan-400' 
-                                    : 'border-gray-300 hover:border-blue-500 text-gray-600 hover:text-blue-600 bg-white shadow-sm'}`}
-                        >
+                         <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg border transition text-[10px] sm:text-xs font-bold tracking-wider w-full sm:w-auto text-center ${darkMode ? 'border-slate-700 hover:border-cyan-500 text-slate-400 hover:text-cyan-400' : 'border-gray-300 hover:border-blue-500 text-gray-600 hover:text-blue-600 bg-white shadow-sm'}`}>
                             {darkMode ? '☀ LIGHT_MODE' : '☾ DARK_MODE'}
                         </button>
                     </div>
                 </div>
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-                    
-                    {/* Grid Layout: Stack di Mobile (grid-cols-1) */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                         {/* 1. LAYAR KAMERA */}
                         <div className="lg:col-span-1 relative group w-full">
@@ -124,7 +163,6 @@ export default function Dashboard({ auth, logs }) {
                                     <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-500 z-20"></div>
                                 </>
                             )}
-
                             <div className={`bg-black rounded-lg overflow-hidden shadow-2xl border relative h-56 sm:h-64 lg:h-full min-h-[220px] sm:min-h-[250px] flex items-center justify-center ${theme.cardBorder}`}>
                                 {darkMode && <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 pointer-events-none bg-[length:100%_4px,3px_100%]"></div>}
                                 
@@ -136,19 +174,28 @@ export default function Dashboard({ auth, logs }) {
                                     <span className="text-[10px] font-bold text-red-500 tracking-widest bg-black/50 px-2 py-0.5 rounded">REC ● LIVE</span>
                                 </div>
 
-                                <img 
-                                    src={streamUrl} 
-                                    alt="FEED_LOST" 
-                                    className="h-full w-full object-contain bg-slate-900 opacity-90"
-                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-700 -z-0">
-                                    <span className="text-sm tracking-widest font-bold">SIGNAL_LOST</span>
-                                </div>
+                                {/* BAGIAN UTAMA YANG DIUBAH */}
+                                {streamUrl && (
+                                    <img 
+                                        key={streamUrl} // Key penting! Biar React bikin ulang elemen kalau URL ganti
+                                        src={streamUrl} 
+                                        alt="FEED_LOST" 
+                                        className={`h-full w-full object-contain bg-slate-900 opacity-90 ${isStreamError ? 'hidden' : 'block'}`} // Pakai class hidden, jangan style.display
+                                        onError={handleStreamError} // Panggil fungsi retry, jangan cuma hide
+                                    />
+                                )}
+                                
+                                {/* Teks SIGNAL LOST muncul kalau streamUrl null atau lagi error */}
+                                {(!streamUrl || isStreamError) && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-700 -z-0">
+                                        <div className="w-8 h-8 border-4 border-slate-700 border-t-cyan-500 rounded-full animate-spin mb-4"></div>
+                                        <span className="text-sm tracking-widest font-bold animate-pulse">CONNECTING...</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* 2. PANEL STATUS */}
+                        {/* 2. PANEL STATUS (Sama) */}
                         <div className="lg:col-span-2 flex flex-col gap-4">
                             <div className={`${theme.cardBg} backdrop-blur border ${theme.cardBorder} p-4 sm:p-5 rounded-xl flex justify-between items-center shadow-sm`}>
                                 <div>
@@ -160,22 +207,22 @@ export default function Dashboard({ auth, logs }) {
                                     <span className="font-mono font-bold">{isSyncing ? 'SYNCING...' : 'IDLE'}</span>
                                 </div>
                             </div>
-
-                            {/* Responsive Grid untuk Kartu: 2 kolom di mobile, 4 kolom di desktop */}
                             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 h-full">
-                                <DeviceCard name="Light_01" status={deviceStatus.D1} />
-                                <DeviceCard name="Light_02" status={deviceStatus.D2} />
-                                <DeviceCard name="Fan_SYS" status={deviceStatus.D3} />
-                                <DeviceCard name="Light_04" status={deviceStatus.D4} />
+                                <DeviceCard id="D1" name="Light_01" status={deviceStatus.D1} />
+                                <DeviceCard id="D2" name="Light_02" status={deviceStatus.D2} />
+                                <DeviceCard id="D3" name="Fan_SYS" status={deviceStatus.D3} />
+                                <DeviceCard id="D4" name="Light_04" status={deviceStatus.D4} />
                             </div>
                         </div>
                     </div>
 
-                    {/* 3. TABEL LOG */}
+                    {/* 3. TABEL LOG (Sama) */}
                     <div className={`border ${theme.cardBorder} ${darkMode ? 'bg-black/40' : 'bg-white'} rounded-xl overflow-hidden backdrop-blur-sm shadow-sm`}>
                         <div className={`p-4 border-b ${theme.cardBorder} ${darkMode ? 'bg-slate-900/30' : 'bg-gray-50'} flex justify-between items-center`}>
                             <h3 className={`text-sm sm:text-base font-bold tracking-wider ${darkMode ? 'text-slate-300' : 'text-gray-700'}`}>Activity_Logs</h3>
-                            <span className={`text-[10px] sm:text-xs font-mono ${darkMode ? 'text-slate-600' : 'text-gray-400'}`}>Auto-refresh 200ms</span>
+                            <button onClick={handleManualRefresh} className={`text-[10px] sm:text-xs font-mono px-3 py-1 rounded border transition hover:brightness-110 flex items-center gap-1 ${darkMode ? 'border-slate-700 bg-slate-800 text-slate-400' : 'border-gray-300 bg-gray-100 text-gray-600'}`}>
+                                <span>↻ REFRESH</span>
+                            </button>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full text-xs sm:text-sm font-mono">
@@ -194,21 +241,11 @@ export default function Dashboard({ auth, logs }) {
                                             <td className={`py-3 sm:py-4 px-4 sm:px-6 ${theme.tableText}`}>{formatTime(log.timestamp)}</td>
                                             <td className={`py-3 sm:py-4 px-4 sm:px-6 font-bold ${darkMode ? 'text-cyan-300' : 'text-blue-700'}`}>{log.target_gesture}</td>
                                             <td className="py-3 sm:py-4 px-4 sm:px-6">
-                                                <span className={`inline-block px-2 py-1 rounded text-[10px] sm:text-xs border font-bold ${
-                                                    log.last_command.includes('ON') 
-                                                    ? (darkMode ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-green-300 text-green-700 bg-green-100')
-                                                    : (darkMode ? 'border-rose-500/30 text-rose-400 bg-rose-500/10' : 'border-red-300 text-red-700 bg-red-100')
-                                                }`}>
-                                                    {log.last_command}
-                                                </span>
+                                                <span className={`inline-block px-2 py-1 rounded text-[10px] sm:text-xs border font-bold ${log.last_command.includes('ON') ? (darkMode ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-green-300 text-green-700 bg-green-100') : (darkMode ? 'border-rose-500/30 text-rose-400 bg-rose-500/10' : 'border-red-300 text-red-700 bg-red-100')}`}>{log.last_command}</span>
                                             </td>
-                                            {/* Latency disembunyikan di mobile agar tabel muat */}
                                             <td className={`py-3 sm:py-4 px-4 sm:px-6 text-center hidden sm:table-cell ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>{parseFloat(log.wifi_latency_ms).toFixed(0)}ms</td>
                                             <td className="py-3 sm:py-4 px-4 sm:px-6 text-center">
-                                                {log.last_command.includes('ON') 
-                                                    ? <span className="text-emerald-400 text-lg">●</span> 
-                                                    : <span className="text-slate-400 text-lg">○</span>
-                                                }
+                                                {log.last_command.includes('ON') ? <span className="text-emerald-400 text-lg">●</span> : <span className="text-slate-400 text-lg">○</span>}
                                             </td>
                                         </tr>
                                     ))}
@@ -216,7 +253,6 @@ export default function Dashboard({ auth, logs }) {
                             </table>
                         </div>
                     </div>
-
                 </div>
             </div>
         </AuthenticatedLayout>
