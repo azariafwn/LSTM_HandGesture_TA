@@ -22,7 +22,7 @@ The system is fully containerized using Docker and exposes a secure web dashboar
 * **Real-time Gesture Recognition:** Powered by MediaPipe and a custom TensorFlow Lite model.
 * **Low Latency Control:** Optimized communication between Raspberry Pi and ESP8266 via HTTP.
 * **Smart State Machine:** Prevents accidental triggers using a selection-action logic (Select Device -> Perform Action).
-* **Modern Dashboard:** Built with Laravel, React, and Tailwind CSS (Cyberpunk/Dark Mode theme).
+* **Modern Dashboard:** Built with Laravel, React, and Tailwind CSS (Dark Mode theme).
 * **Multi-Client Streaming:** Supports simultaneous video monitoring from multiple devices.
 * **Auto Discovery:** Uses Zeroconf/mDNS to automatically find IoT devices on the network.
 
