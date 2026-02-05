@@ -29,7 +29,7 @@ export default function Dashboard({ auth, logs }) {
     const loadStream = () => {
         setIsStreamError(false); // Reset error dulu
         // Tambahkan timestamp biar browser anggap ini video baru
-        setStreamUrl(`http://${window.location.hostname}:5000/video_feed?t=${Date.now()}`);
+        setStreamUrl(`https://video.smarthome-gesture.my.id/video_feed?t=${Date.now()}`);
     };
 
     useEffect(() => {
