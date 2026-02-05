@@ -1,179 +1,136 @@
-# Deteksi Gestur Tangan (LSTM) dengan TFLite dan Docker
+# Smart Home Hand Gesture Control System 🖐️🏠
 
-Ini adalah proyek untuk mendeteksi gestur tangan secara *real-time* (thumbs up/down) menggunakan model Jaringan Saraf Tiruan (Neural Network) berjenis LSTM. Model dilatih menggunakan data *keypoints* yang diekstrak oleh MediaPipe dan dideploy sebagai paket Docker yang *portable* dan independen.
+![Project Status](https://img.shields.io/badge/Status-Active-success)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Laravel](https://img.shields.io/badge/Laravel-10-red)
+![React](https://img.shields.io/badge/React-18-cyan)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-Lite-orange)
 
-Proyek ini dirancang untuk alur kerja *cross-platform*, di mana *development* dan *training* model dilakukan di PC Windows, sementara *deployment* (penjalanan model) ditujukan untuk perangkat Linux ARM64 (seperti Raspberry Pi 5) menggunakan Docker.
+A contactless smart home control system powered by **Artificial Intelligence** and **IoT**. This project utilizes a Raspberry Pi 5 to recognize hand gestures in real-time and control various home appliances (lights, fans) connected via ESP8266 microcontrollers. It features a modern, cyberpunk-styled web dashboard for remote monitoring and manual control.
 
----
-
-## 📁 Struktur Proyek
-
-Repositori ini dibagi menjadi dua alur kerja utama yang masing-masing ada di foldernya sendiri:
-
-* `LSTM_HandGesture/`
-    Folder ini berisi semua skrip untuk alur kerja *data science*—mulai dari mengumpulkan data, memproses, melatih, hingga mengonversi model. Ini adalah "dapur" tempat model dibuat.
-
-* `gesture_docker/`
-    Folder ini berisi semua file yang diperlukan untuk *deployment*—`Dockerfile`, skrip inferensi `run_model.py`, dan `requirements.txt` untuk membuat image Docker yang siap pakai.
+🔗 **Live Dashboard:** [https://smarthome-gesture.my.id](https://smarthome-gesture.my.id)
 
 ---
 
-## ⚙️ Penjelasan Alur Kode
+## 📖 Project Overview
 
-Berikut adalah penjelasan rinci dari setiap skrip dalam proyek ini.
+This system is designed to eliminate physical interaction with switches. By using computer vision and deep learning, the system detects specific hand gestures to select a device (e.g., "Lamp 1") and execute an action (e.g., "Turn On").
 
-### 1. `LSTM_HandGesture/` (Alur Training & Konversi)
+The system is fully containerized using Docker and exposes a secure web dashboard accessible from anywhere via the internet, allowing for real-time video streaming and latency monitoring.
 
-* **`1_collect_data.py`**
-    * **Tujuan:** Merekam video mentah dari gestur Anda.
-    * **Cara Kerja:** Menggunakan OpenCV untuk membuka webcam. Skrip akan meminta Anda merekam sejumlah video (`no_sequences_to_add`) untuk setiap gestur (`actions`). Setiap video terdiri dari 30 frame (`sequence_length`) yang disimpan sebagai file `.jpg` individual ke dalam folder `MP_Data`.
-
-* **`2_proccess_data.py`**
-    * **Tujuan:** Mengonversi gambar `.jpg` mentah menjadi data *keypoints* (titik-titik sendi tangan) yang siap dilatih.
-    * **Cara Kerja:** Menggunakan `mp.solutions.holistic` dari MediaPipe untuk mengekstrak 63 koordinat (21 landmark x 3 koordinat x/y/z) dari tangan kanan (`right_hand_landmarks`) dari setiap frame gambar. Hasilnya (sebuah array dengan *shape* `(30, 63)`) disimpan sebagai file `.npy` di dalam folder `Keypoints_Data`.
-
-* **`3_train_model.py`**
-    * **Tujuan:** Melatih model AI (LSTM) untuk mengenali pola dari data *keypoints*.
-    * **Cara Kerja:** Memuat semua file `.npy` dari `Keypoints_Data`. Data dibagi menjadi data latih dan data uji (80/20). Sebuah model `Sequential` Keras dibangun menggunakan layer **LSTM** (yang ideal untuk data sekuensial/temporal) dan layer `Dropout` (untuk mencegah *overfitting*). Skrip ini menggunakan `ModelCheckpoint` untuk menyimpan **hanya versi terbaik** dari model (`hand_gesture_model_terbaik.keras`) berdasarkan performanya.
-
-* **`4_convert_to_tflite.py`**
-    * **Tujuan:** Mengubah model `.keras` (yang berat) menjadi file `.tflite` (yang ringan dan *portable*).
-    * **Cara Kerja:** Memuat `hand_gesture_model_terbaik.keras` dan menggunakan `TFLiteConverter.from_concrete_functions` dengan *input shape* statis `(1, 30, 63)`. Ini "membekukan" model, membuatnya sangat efisien dan kompatibel untuk inferensi.
-    * **Hasil:** File `model.tflite`.
-
-* **`5_test_model.py`**
-    * **Tujuan:** Skrip uji coba di Windows untuk memvalidasi model `tflite` sebelum di-deploy. Tidak ada koneksi hardware.
-
-* **`6_test_model_esp.py`**
-    * **Tujuan:** Skrip uji coba **hardware** di Windows untuk memvalidasi logika pengiriman sinyal ke *microcontroller* (seperti ESP32) menggunakan `pyserial` di port `COM5`.
-
-### 2. `gesture_docker/` (Alur Deployment)
-
-* **`Dockerfile`**
-    * **Tujuan:** Resep untuk membangun "paket" aplikasi independen.
-    * **Cara Kerja:**
-        1.  Mulai dari `python:3.11-slim-bookworm` (OS Linux ARM64).
-        2.  Menginstal semua *library* sistem (`libgl1`, `libglib2.0-0`, `libxcb1`, dll.) yang dibutuhkan oleh OpenCV (`cv2.imshow`) agar bisa memunculkan jendela GUI.
-        3.  Menginstal 3 paket Python dari `requirements.txt`: `tensorflow`, `opencv-python`, `mediapipe`, dan `lgpio`.
-        4.  Menyalin skrip `run_model.py` dan `model.tflite` ke dalam image.
-        5.  Mengatur perintah default untuk menjalankan `run_model.py` saat container dimulai.
-
-* **`requirements.txt`**
-    * **Tujuan:** Memberi tahu Docker paket Python apa saja yang harus diinstal (`tensorflow`, `opencv-python`, `mediapipe`, `lgpio`).
-
-* **`run_model.py`**
-    * **Tujuan:** Ini adalah skrip produksi akhir yang berjalan **di dalam Docker** untuk mengontrol GPIO Raspberry Pi 5.
-    * **Cara Kerja:** Skrip ini memuat `model.tflite`. (BARU) Ia mengimpor `lgpio` dan terhubung ke chip GPIO 4 (`lgpio.gpiochip_open(4)`). Saat gestur terdeteksi (misal: 'close_to_open_palm'), ia langsung menjalankan `lgpio.gpio_write()` untuk mengontrol pin 17 & 27. Jendela OpenCV tetap ditampilkan untuk *feedback* visual.
+### Key Features
+* **Real-time Gesture Recognition:** Powered by MediaPipe and a custom TensorFlow Lite model.
+* **Low Latency Control:** Optimized communication between Raspberry Pi and ESP8266 via HTTP.
+* **Smart State Machine:** Prevents accidental triggers using a selection-action logic (Select Device -> Perform Action).
+* **Modern Dashboard:** Built with Laravel, React, and Tailwind CSS (Cyberpunk/Dark Mode theme).
+* **Multi-Client Streaming:** Supports simultaneous video monitoring from multiple devices.
+* **Auto Discovery:** Uses Zeroconf/mDNS to automatically find IoT devices on the network.
 
 ---
 
-## 🚀 Cara Penggunaan (Menjalankan di Device Target)
+## ⚙️ System Architecture
 
-Panduan ini mengasumsikan Anda akan menggunakan image Docker yang sudah jadi (`azariafwn/gesture-app:latest`) yang di-build dari repo ini.
+The system consists of three main layers: **Edge Processing (AI)**, **IoT Actuation**, and **User Interface**.
 
-**Prasyarat di Device Target (misal: Raspberry Pi 5):**
-* Device terhubung ke internet.
-* Webcam terpasang.
-* Docker sudah terinstal.
-* (Satu Kali) User Anda sudah ditambahkan ke grup `gpio` (lihat **Tahap Awal**).
+### 1. AI & Processing Layer (Raspberry Pi 5)
+* **Input:** A webcam captures video frames.
+* **Feature Extraction:** **MediaPipe Hands** extracts 21 3D hand landmarks.
+* **Classification:** A custom **TensorFlow Lite** model processes the landmark history (sequence) to predict the gesture.
+* **Logic:** A Python script manages the state (Cooldowns, Device Selection, Action Triggers).
+* **Streaming:** A multi-threaded **Flask** server streams the processed video feed with overlays.
 
-### 1. Tahapan Awal (Setup Pertama Kali)
+### 2. IoT Layer (ESP8266)
+* **Actuators:** ESP8266 modules control relays for lights fans, and many more.
+* **Communication:** Receives HTTP commands from the Raspberry Pi (e.g., `GET /11` to turn Device 1 ON).
 
-1.  **Tambahkan User ke Grup GPIO**
-    Buka terminal di Raspberry Pi Anda dan tambahkan user ke grup GPIO. Ini WAJIB untuk mengizinkan Docker mengakses `/dev/gpiochip4`.
-    ```bash
-    sudo usermod -aG gpio $USER
-    ```
-    REBOOT Pi Anda setelah menjalankan ini: `sudo reboot`
-
-2.  **Tarik Image Docker:**
-    Buka terminal di Raspberry Pi Anda dan tarik image dari Docker Hub.
-    ```bash
-    docker pull azariafwn/gesture-app:latest
-    ```
-
-3.  **Beri Izin Akses Layar (X11):**
-    Ini **WAJIB** agar container Docker bisa "menggambar" jendela `cv2.imshow` di layar Anda. Perintah ini harus dijalankan setiap kali device di-reboot.
-    ```bash
-    xhost +
-    ```
-
-4.  **(Rekomendasi) Buat file `docker-compose.yml`:**
-    Agar Anda tidak perlu mengetik perintah `docker run` yang panjang setiap saat, buat satu folder (misal `~/gesture_app`) dan di dalamnya buat file `docker-compose.yml` dengan isi berikut:
-
-    ```yaml
-    services:
-    gesture-app:
-        image: azariafwn/gesture-app:latest
-        container_name: gesture_control_app
-        stdin_open: true # Sama dengan -i
-        tty: true        # Sama dengan -t
-
-        # (Kritis) Memberi akses ke hardware
-        devices:
-        - "/dev/gpiochip4"
-        - "/dev/video0"
-
-        # Mengambil variabel DISPLAY dari host
-        environment:
-        - DISPLAY=${DISPLAY}
-
-        # Menghubungkan "soket" layar
-        volumes:
-        - "/tmp/.X11-unix:/tmp/.X11-unix"
-    ```
-
-5.  **Jalankan Aplikasi:**
-    Masuk ke folder tempat Anda menyimpan `docker-compose.yml` dan jalankan:
-    ```bash
-    docker compose up
-    ```
-    Jendela OpenCV akan muncul dan model akan mulai mendeteksi. Tekan `Ctrl+C` di terminal untuk menghentikannya.
-
-### 2. Tahapan Ulang (Menjalankan Kembali)
-
-Jika Anda sudah pernah melakukan setup, Anda hanya perlu:
-
-1.  Buka terminal.
-2.  Beri izin GUI (jika baru reboot): `xhost +`
-3.  Masuk ke folder `docker-compose.yml` Anda.
-4.  Jalankan: `docker compose up`
-
-### 3. Tahapan Update (Jika Ada Model/Kode Baru)
-
-Jika saya (pemilik repo) meng-update kode dan mem-build image baru ke `azariafwn/gesture-app:latest`, Anda hanya perlu melakukan ini di Raspberry Pi:
-
-1.  Tarik versi terbaru:
-    ```bash
-    docker compose pull
-    ```
-2.  Jalankan seperti biasa (langkah 2 di atas).
+### 3. Interface Layer (Web Dashboard)
+* **Backend:** **Laravel** serves the application and manages authentication.
+* **Database:** **SQLite** stores activity logs (gestures detected, latency, device status).
+* **Frontend:** **React (Inertia.js)** provides a reactive UI for:
+    * Live Video Monitoring.
+    * Real-time Activity Logs.
+    * Manual Device Control (Buttons).
+    * Network & Inference Latency Stats.
 
 ---
 
-## 🛠️ Alur Kerja Development (Melatih & Build Model Sendiri)
+## 🛠️ Tech Stack
 
-Gunakan alur ini jika Anda ingin melatih model Anda sendiri (misal: menambah gestur baru).
+### Hardware
+* **Edge Device:** Raspberry Pi 5 (8GB RAM recommended)
+* **Camera:** USB Webcam / Pi Camera
+* **Microcontroller:** NodeMCU ESP8266 (x4)
+* **Network:** Local WiFi Router
 
-### Bagian A: Melatih Model (di PC Windows)
+### Software & Frameworks
+* **AI/ML:** Python, OpenCV, MediaPipe, TensorFlow, Keras.
+* **Backend (Stream):** Flask, Zeroconf, SQLite, Threading.
+* **Web Framework:** Laravel 10 (PHP), Docker.
+* **Frontend:** React.js, Tailwind CSS, Inertia.js.
+* **Tools:** Docker Compose, Postman (API Testing).
 
-1.  Pastikan Anda memiliki *environment* Python (disarankan `venv`) dengan `tensorflow`, `opencv-python`, `mediapipe`, dan `scikit-learn`.
-2.  Masuk ke folder `LSTM_HandGesture`.
-3.  Sesuaikan `actions = np.array([...])` di seluruh file (1 - 6) agar sesuai dengan gestur baru Anda.
-4.  Jalankan `1_collect_data.py` untuk merekam data baru Anda.
-5.  Jalankan `2_proccess_data.py` untuk memproses data.
-6.  Jalankan `3_train_model.py` untuk melatih model.
-7.  Jalankan `4_convert_to_tflite.py` untuk membuat `model.tflite`.
-8.  (Opsional) Uji di Windows dengan `5_test_model.py` (visual) atau `6_test_model_esp.py` (hardware ESP32).
+---
 
-### Bagian B: Mem-build Image Docker Baru
+## 🤏 Gesture Logic
 
-1.  Salin `model.tflite` baru dari `LSTM_HandGesture` ke `gesture_docker`.
-2.  **PENTING:** Edit baris `actions = ...` di `gesture_docker/run_model.py` agar cocok dengan gestur baru Anda.
-3.  Masuk ke folder `gesture_docker`.
-4.  Jalankan `docker buildx` untuk mem-build dan mem-push ke Docker Hub Anda:
-    ```bash
-    # Ganti 'usernameanda/nama-app' dengan nama image Anda
-    docker buildx build --platform linux/arm64 -t usernameanda/gesture-app:latest --push .
-    ```
-5.  Setelah selesai, Anda bisa men-`pull` image baru ini di Raspberry Pi Anda.
+The system uses a **Two-Step Activation** method to ensure safety and accuracy:
+
+1.  **Step 1: Selection (Select Device)**
+    * ✌️ **Two Fingers:** Selects Device 2.
+    * 🤟 **Three Fingers:** Selects Device 3.
+    * (And so on for other devices).
+
+2.  **Step 2: Action (Execute Command)**
+    * ✋ **Closed to Open Palm:** Turn **ON**.
+    * ✊ **Open to Closed Palm:** Turn **OFF**.
+
+*Example: To turn on Lamp 2, the user shows "Two Fingers" followed by "Opening Palm".*
+
+---
+
+## 🧠 Machine Learning Architecture
+
+The core of the gesture recognition system is a Deep Neural Network built using **TensorFlow** and **Keras**. The model is designed to classify time-series data derived from hand landmarks, enabling the detection of dynamic gestures rather than just static poses.
+
+### 1. Input Data
+The model accepts sequential data extracted from **MediaPipe Hands**:
+* **Sequence Length:** 30 frames (representing ~1 second of video).
+* **Features:** 63 values per frame (21 landmarks $\times$ 3 coordinates [x, y, z]).
+* **Input Shape:** `(30, 63)`
+
+### 2. Network Topology
+The architecture utilizes **Long Short-Term Memory (LSTM)** layers to capture temporal dependencies and motion patterns, followed by Fully Connected (Dense) layers for classification.
+
+| Layer Type | Units / Rate | Activation | Description |
+| :--- | :--- | :--- | :--- |
+| **LSTM** | 64 | `tanh` | Captures initial temporal features (return sequences). |
+| **Dropout** | 0.5 | - | Regularization to prevent overfitting. |
+| **LSTM** | 128 | `tanh` | Deep temporal feature extraction (return sequences). |
+| **Dropout** | 0.5 | - | Regularization. |
+| **LSTM** | 64 | `tanh` | Compresses time-series data into a feature vector. |
+| **Dense** | 64 | `relu` | Intermediate classification logic. |
+| **Dense** | 32 | `relu` | Bottleneck layer for feature refinement. |
+| **Dense** | *N_Classes* | `softmax` | Output layer (Probability distribution for gestures). |
+
+### 3. Training Configuration
+The model is trained using the following hyperparameters and callbacks to ensure optimal convergence:
+
+* **Optimizer:** Adam
+* **Loss Function:** Categorical Crossentropy
+* **Batch Size:** 32
+* **Max Epochs:** 200
+* **Callbacks:**
+    * `EarlyStopping`: Monitors `val_loss` with a patience of 20 epochs to stop training when the model stops improving.
+    * `ModelCheckpoint`: Automatically saves the best model weights based on validation loss.
+
+---
+
+## ⚠️ Disclaimer
+
+This project is created for educational and research purposes (Final Year Project). While the dashboard is accessible publicly for demonstration, the physical control is limited to the local hardware setup located in the development environment.
+
+---
+
+<p align="center">
+  Built with ❤️ by <a href="https://azariafwn.vercel.app/" target="_blank"><strong>azariafwn</strong></a>
+</p>
