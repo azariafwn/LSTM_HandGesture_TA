@@ -9,6 +9,7 @@ import socket
 import csv
 import sqlite3
 import datetime
+import threading  # <--- WAJIB IMPORT INI
 from requests.exceptions import ConnectionError
 from flask import Flask, Response, render_template_string, request, jsonify
 from zeroconf import ServiceBrowser, Zeroconf
@@ -17,6 +18,12 @@ from zeroconf import ServiceBrowser, Zeroconf
 # --- INISIALISASI FLASK ---
 # ==========================================
 app = Flask(__name__)
+
+# ==========================================
+# --- GLOBAL VARIABLES FOR STREAMING ---
+# ==========================================
+outputFrame = None
+lock = threading.Lock() # Kunci agar thread aman
 
 # ==========================================
 # --- KONFIGURASI PATH & LOGGING ---
@@ -47,9 +54,8 @@ if not os.path.exists(LOG_FILE):
 # --- INIT DATABASE (SQLITE) ---
 def init_db():
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, check_same_thread=False) # Allow multithread
         cursor = conn.cursor()
-        # Buat tabel logs agar Laravel bisa baca
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS activity_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,13 +78,12 @@ def init_db():
     except Exception as e:
         print(f"❌ Database Init Error: {e}")
 
-# Panggil fungsi init saat startup
 init_db()
 
 def log_to_data(event, fps, edge_ms, wifi_ms, total_ms, resolution, distance, target_gesture, last_cmd_str, light_lux):
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Format DateTime SQL
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # 1. Simpan ke CSV (Backup Legacy)
+    # 1. CSV
     try:
         with open(LOG_FILE, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -86,9 +91,9 @@ def log_to_data(event, fps, edge_ms, wifi_ms, total_ms, resolution, distance, ta
     except Exception as e:
         print(f"CSV Error: {e}")
 
-    # 2. Simpan ke SQLite (Untuk Web Laravel)
+    # 2. SQLite
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=10) # Timeout ditambah biar aman
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO activity_logs (timestamp, event, fps, edge_latency_ms, wifi_latency_ms, total_latency_ms, resolution, distance, target_gesture, last_command, light_intensity_lux)
@@ -107,13 +112,10 @@ POST_COMMAND_COOLDOWN = 2.5
 STATE_TIMEOUT = 5
 PREDICTION_THRESHOLD = 0.97
 
-# --- VARIABEL IP ESP (Akan diisi otomatis oleh Zeroconf) ---
 ESP1_IP = "0.0.0.0" 
 ESP2_IP = "0.0.0.0"
 ESP3_IP = "0.0.0.0"
 ESP4_IP = "0.0.0.0"
-
-print("🚀 [INFO] Memulai Sistem Gesture Control (Flask + SQLite)...")
 
 # ========================================================
 # --- AUTO DISCOVERY (ZEROCONF) ---
@@ -155,7 +157,6 @@ if '3' in found_devices: ESP3_IP = found_devices['3']; print(f"✅ ESP 3: {ESP3_
 if '4' in found_devices: ESP4_IP = found_devices['4']; print(f"✅ ESP 4: {ESP4_IP}")
 print("-" * 40)
 
-
 # ========================================================
 # --- MEDIAPIPE & TFLITE SETUP ---
 # ========================================================
@@ -190,19 +191,16 @@ def extract_keypoints(results):
 
 def send_command(command, target_ip):
     if target_ip == "0.0.0.0": return 0
-    
     url = f"http://{target_ip}/{command}"
     try:
         start_net = time.time()
         response = requests.get(url, timeout=1.0) 
         end_net = time.time()
         latency_ms = (end_net - start_net) * 1000
-        
         if response.status_code == 200:
             print(f"📡 HTTP 200 OK -> {target_ip}")
             return latency_ms
         else:
-            print(f"⚠️ HTTP FAIL {response.status_code}")
             return 0
     except Exception as e:
         print(f"❌ Connection Error: {e}")
@@ -213,9 +211,12 @@ SELECTION_GESTURES = ['close_to_one', 'open_to_one', 'close_to_two', 'open_to_tw
 ACTION_GESTURES = ['close_to_open_palm', 'open_to_close_palm']
 
 # ==========================================
-# --- CORE LOGIC GENERATOR ---
+# --- BACKGROUND PROCESSING THREAD ---
 # ==========================================
-def generate_frames():
+# Fungsi ini berjalan sendiri di belakang layar untuk akses kamera & AI
+def process_camera():
+    global outputFrame, lock, ESP1_IP, ESP2_IP, ESP3_IP, ESP4_IP
+    
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -298,7 +299,6 @@ def generate_frames():
                         status_suffix = "1" if current_action_state == 'AKSI_ON' else "0"
                         real_cmd = cmd_prefix + status_suffix
                         
-                        # --- KIRIM PERINTAH NYATA KE LAMPU ---
                         if target_ip != "0.0.0.0":
                             print(f"🚀 MENGIRIM REQUEST ke {target_ip}...")
                             wifi_latency_ms = send_command(real_cmd, target_ip)
@@ -306,8 +306,6 @@ def generate_frames():
                             print("⚠️ ESP IP belum ditemukan!")
                         
                         status_str = "ON" if current_action_state == 'AKSI_ON' else "OFF"
-                        
-                        # Log ke SQLite agar Dashboard Update
                         log_to_data("GESTURE_CMD", fps, edge_latency_ms, wifi_latency_ms, edge_latency_ms + wifi_latency_ms, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, temp_action, f"{target_device_id} {status_str}", SELECTED_LIGHT_LUX)
                         
                         final_command_sent = True
@@ -342,56 +340,58 @@ def generate_frames():
             state_color = (0, 255, 0) if current_action_state == 'AKSI_ON' else ((0, 0, 255) if current_action_state == 'AKSI_OFF' else (200, 200, 200))
             cv2.putText(image, state_text, (15, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.8, state_color, 2)
 
+            # --- ENCODE GAMBAR UNTUK STREAMING ---
             ret, buffer = cv2.imencode('.jpg', image)
             frame_bytes = buffer.tobytes()
 
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            # --- SIMPAN KE GLOBAL VARIABLE SECARA AMAN ---
+            with lock:
+                outputFrame = b'--frame\r\n' + b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
 
-    cap.release()
+# ==========================================
+# --- FLASK STREAMING GENERATOR ---
+# ==========================================
+# Fungsi ini HANYA membaca variabel global, tidak akses kamera langsung
+def generate_frames_for_web():
+    global outputFrame, lock
+    while True:
+        with lock:
+            if outputFrame is None:
+                continue
+            frame_data = outputFrame
+        
+        yield frame_data
+        time.sleep(0.04) # Limit pengiriman frame ke browser (~25 FPS) agar tidak membebani jaringan
 
 @app.route('/')
 def index():
     return render_template_string('''
         <html>
-        <head>
-            <title>Raspi Gesture Monitor</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-                body { background-color: #1a1a1a; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-                img { width: 100%; max-width: 640px; border: 2px solid #444; }
-                .info { margin-top: 10px; color: #aaa; font-size: 0.9em; }
-            </style>
-        </head>
         <body>
-            <h2>Raspberry Pi Live Monitor</h2>
-            <img src="{{ url_for('video_feed') }}">
-            <div class="info">
-                <p>Status: Flask Streaming Active + SQLite Logging</p>
-                <p>Ready for Laravel Dashboard Integration</p>
-            </div>
+            <h2>Raspberry Pi Multi-Client Monitor</h2>
+            <img src="{{ url_for('video_feed') }}" width="640">
         </body>
         </html>
     ''')
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    # Setiap client yang connect akan menjalankan fungsi ini sendiri-sendiri,
+    # TAPI mereka semua membaca dari 'outputFrame' yang sama.
+    return Response(generate_frames_for_web(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # ==========================================
-# --- API BARU UNTUK KONTROL MANUAL ---
+# --- API MANUAL CONTROL ---
 # ==========================================
 @app.route('/api/manual_command', methods=['POST'])
 def manual_command_api():
     try:
-        # 1. Terima Data JSON dari Laravel
         data = request.json
-        device_id = data.get('device_id') # Contoh: "D1"
-        command = data.get('command')     # Contoh: "ON" atau "OFF"
+        device_id = data.get('device_id') 
+        command = data.get('command')    
         
         print(f"🔔 [MANUAL API] Request: {device_id} -> {command}")
 
-        # 2. Tentukan IP Target
         target_ip = "0.0.0.0"
         cmd_prefix = ""
         if device_id == "D1": target_ip = ESP1_IP; cmd_prefix = "1"
@@ -402,14 +402,12 @@ def manual_command_api():
         status_suffix = "1" if command == "ON" else "0"
         real_cmd = cmd_prefix + status_suffix
 
-        # 3. Kirim ke Hardware
         wifi_latency = 0
         if target_ip != "0.0.0.0":
             wifi_latency = send_command(real_cmd, target_ip)
         else:
             print(f"⚠️ IP untuk {device_id} tidak ditemukan!")
 
-        # 4. Log ke Database (PENTING BIAR DASHBOARD UPDATE)
         log_to_data("MANUAL_BTN", 0, 0, wifi_latency, wifi_latency, CURRENT_RESOLUTION_STR, SELECTED_DISTANCE_STR, "Manual_Click", f"{device_id} {command}", SELECTED_LIGHT_LUX)
         
         return jsonify({"status": "success", "message": f"Executed {real_cmd} on {target_ip}"}), 200
@@ -418,5 +416,14 @@ def manual_command_api():
         print(f"❌ [MANUAL ERROR] {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ==========================================
+# --- MAIN ENTRY POINT ---
+# ==========================================
 if __name__ == "__main__":
+    # Jalankan thread kamera SEBELUM server Flask
+    t = threading.Thread(target=process_camera)
+    t.daemon = True # Thread mati otomatis kalau program utama mati
+    t.start()
+
+    # Jalankan Flask
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
