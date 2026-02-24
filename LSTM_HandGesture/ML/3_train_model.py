@@ -11,20 +11,23 @@ import matplotlib.pyplot as plt
 # Ambil folder tempat script ini berada
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-LATEX_PROJECT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, '../../BukuTATekkomLatex'))
+# LATEX_PROJECT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, '../../BukuTATekkomLatex'))
 
-TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data') 
-IMG_DIR = os.path.join(LATEX_PROJECT_DIR, 'gambar') 
+# TEX_DATA_DIR = os.path.join(LATEX_PROJECT_DIR, 'data') 
+# IMG_DIR = os.path.join(LATEX_PROJECT_DIR, 'gambar') 
 
 # Buat folder jika belum ada
-os.makedirs(TEX_DATA_DIR, exist_ok=True)
-os.makedirs(IMG_DIR, exist_ok=True)
+# os.makedirs(TEX_DATA_DIR, exist_ok=True)
+# os.makedirs(IMG_DIR, exist_ok=True)
 
+# Folder absolut khusus untuk grafik paper IEEE
+PAPER_IMG_DIR = r"C:/zafaa/kuliah/TA/paper/conference-latex-template/IEEE-conference-template-062824/fig"
+os.makedirs(PAPER_IMG_DIR, exist_ok=True)
 
 total_start = time.time()
 
 # Arahkan path ke folder Keypoints_Data
-DATA_PATH = os.path.join('Keypoints_Data') 
+DATA_PATH = os.path.join('../Keypoints_Data') 
 
 actions = np.array(['close_to_open_palm', 'open_to_close_palm', 'close_to_one', 'open_to_one', 'close_to_two', 'open_to_two', 'close_to_three', 'open_to_three', 'close_to_four', 'open_to_four'])
 sequence_length = 30
@@ -136,117 +139,161 @@ loss = history.history['loss']
 val_loss = history.history['val_loss']
 epochs_range = range(1, len(acc) + 1) # Membuat sumbu X sesuai jumlah epoch asli
 
-# --- GRAFIK 1: AKURASI ---
-plt.figure(figsize=(10, 6))
-plt.plot(epochs_range, acc, label='Training Accuracy')
-plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-plt.title('Grafik Akurasi Model (Training vs Validation)')
-plt.xlabel('Epoch')
-plt.ylabel('Akurasi')
-plt.legend(loc='lower right')
-plt.grid(True)
-plt.savefig(os.path.join(IMG_DIR, 'grafik_akurasi.png')) 
-print(f"✅ Grafik Akurasi disimpan di: {os.path.join(IMG_DIR, 'grafik_akurasi.png')}")
-plt.close() # Tutup plot agar tidak menumpuk
+# ---------------------------------------------------------
+# 1. VERSI BUKU LAPORAN (Bahasa Indonesia, Format Standar)
+# ---------------------------------------------------------
 
-# --- GRAFIK 2: LOSS ---
-plt.figure(figsize=(10, 6))
-plt.plot(epochs_range, loss, label='Training Loss')
-plt.plot(epochs_range, val_loss, label='Validation Loss')
-plt.title('Grafik Loss Model (Training vs Validation)')
+# # --- GRAFIK 1: AKURASI ---
+# plt.figure(figsize=(10, 6))
+# plt.plot(epochs_range, acc, label='Training Accuracy')
+# plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+# plt.title('Grafik Akurasi Model (Training vs Validation)')
+# plt.xlabel('Epoch')
+# plt.ylabel('Akurasi')
+# plt.legend(loc='lower right')
+# plt.grid(True)
+# plt.savefig(os.path.join(IMG_DIR, 'grafik_akurasi.png')) 
+# print(f"✅ Grafik Akurasi disimpan di: {os.path.join(IMG_DIR, 'grafik_akurasi.png')}")
+# plt.close() # Tutup plot agar tidak menumpuk
+
+# # --- GRAFIK 2: LOSS ---
+# plt.figure(figsize=(10, 6))
+# plt.plot(epochs_range, loss, label='Training Loss')
+# plt.plot(epochs_range, val_loss, label='Validation Loss')
+# plt.title('Grafik Loss Model (Training vs Validation)')
+# plt.xlabel('Epoch')
+# plt.ylabel('Loss')
+# plt.legend(loc='upper right')
+# plt.grid(True)
+# plt.savefig(os.path.join(IMG_DIR, 'grafik_loss.png'))
+# print(f"✅ Grafik Loss disimpan di: {os.path.join(IMG_DIR, 'grafik_loss.png')}")
+# plt.close()
+
+
+# ---------------------------------------------------------
+# 2. VERSI PAPER IEEE (Bahasa Inggris, High-Res 300 DPI, Vektor PDF)
+# ---------------------------------------------------------
+print("\nMembuat grafik untuk Paper IEEE...")
+
+# Perbesar ukuran font global khusus untuk paper
+plt.rcParams.update({'font.size': 14, 'axes.labelsize': 16, 'axes.titlesize': 18, 'legend.fontsize': 14})
+
+# --- GRAFIK 1: ACCURACY (PAPER) ---
+plt.figure(figsize=(8, 5)) # Ukuran sedikit di-compress agar pas di 1 kolom IEEE
+plt.plot(epochs_range, acc, label='Training', linewidth=2)
+plt.plot(epochs_range, val_acc, label='Validation', linewidth=2)
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend(loc='lower right')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout() # Mencegah ada label yang terpotong
+
+# Simpan ganda: PNG resolusi tinggi dan PDF vektor
+plt.savefig(os.path.join(PAPER_IMG_DIR, 'model_accuracy_paper_teslagi.png'), dpi=300)
+plt.savefig(os.path.join(PAPER_IMG_DIR, 'model_accuracy_paper_teslagi.pdf'), format='pdf')
+print(f"✅ Grafik Akurasi (Paper) disimpan di: {os.path.join(PAPER_IMG_DIR, 'model_accuracy_paper_teslagi.pdf')}")
+plt.close()
+
+# --- GRAFIK 2: LOSS (PAPER) ---
+plt.figure(figsize=(8, 5))
+plt.plot(epochs_range, loss, label='Training', linewidth=2)
+plt.plot(epochs_range, val_loss, label='Validation', linewidth=2)
+plt.title('Model Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend(loc='upper right')
-plt.grid(True)
-plt.savefig(os.path.join(IMG_DIR, 'grafik_loss.png'))
-print(f"✅ Grafik Loss disimpan di: {os.path.join(IMG_DIR, 'grafik_loss.png')}")
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout()
+
+plt.savefig(os.path.join(PAPER_IMG_DIR, 'model_loss_paper_teslagi.png'), dpi=300)
+plt.savefig(os.path.join(PAPER_IMG_DIR, 'model_loss_paper_teslagi.pdf'), format='pdf')
+print(f"✅ Grafik Loss (Paper) disimpan di: {os.path.join(PAPER_IMG_DIR, 'model_loss_paper_teslagi.pdf')}")
 plt.close()
 
 
+# # ==========================================
+# # --- BAGIAN AUTO-GENERATE CONFIG TABLE LATEX ---
+# # ==========================================
+# print("\nMenyimpan konfigurasi pelatihan ke file LaTeX...")
 
 
-# ==========================================
-# --- BAGIAN AUTO-GENERATE CONFIG TABLE LATEX ---
-# ==========================================
-print("\nMenyimpan konfigurasi pelatihan ke file LaTeX...")
+# OUTPUT_CONFIG_FILE = os.path.join(TEX_DATA_DIR, 'training_config.tex')
+
+# # --- AMBIL DATA REAL DARI VARIABEL DI ATAS ---
+# # 1. Optimizer: Ambil langsung dari object model biar akurat
+# real_optimizer = model.optimizer.get_config()['name'] 
+
+# # 2. Learning Rate: Coba ambil dari optimizer yang aktif
+# real_lr = model.optimizer.learning_rate.numpy()
+
+# # Ambil nama loss, pastikan string, dan ganti '_' dengan '\_' agar aman di LaTeX
+# raw_loss = model_loss
+# if hasattr(raw_loss, '__name__'): # Jika loss berupa object fungsi
+#     raw_loss = raw_loss.__name__
+
+# # Escape underscore untuk LaTeX (categorical_crossentropy -> categorical\_crossentropy)
+# safe_loss_fn = str(raw_loss).replace('_', '\\_') 
+# # ---------------------------
+
+# # 3. Split Ratio: Hitung persentase real
+# real_split_val = int(test_size * 100)
+# real_split_train = 100 - real_split_val
+
+# # 4. Buat Konten LaTeX
+# tex_content = f"""% Data Konfigurasi Training Otomatis
+# % Diambil langsung dari variabel eksekusi Python
+# % Tanggal: {time.strftime("%Y-%m-%d %H:%M:%S")}
+
+# \\newcommand{{\\TrainOptimizer}}{{{real_optimizer}}}
+# \\newcommand{{\\TrainLearningRate}}{{{real_lr}}}
+# \\newcommand{{\\TrainLossFn}}{{{safe_loss_fn}}}
+# \\newcommand{{\\TrainBatchSize}}{{{batch_size}}}  % Mengambil variabel BATCH_SIZE
+# \\newcommand{{\\TrainMaxEpochs}}{{{max_epochs}}}  % Mengambil variabel MAX_EPOCHS
+# \\newcommand{{\\TrainPatience}}{{{patience}}}      % Mengambil variabel PATIENCE
+# \\newcommand{{\\TrainSplitTrain}}{{{real_split_train}}} % Hasil hitungan
+# \\newcommand{{\\TrainSplitVal}}{{{real_split_val}}}     % Hasil hitungan
+# """
+
+# with open(OUTPUT_CONFIG_FILE, "w") as f:
+#     f.write(tex_content)
+
+# print(f"✅ Konfigurasi tersimpan di: {OUTPUT_CONFIG_FILE}")
 
 
-OUTPUT_CONFIG_FILE = os.path.join(TEX_DATA_DIR, 'training_config.tex')
+# # ==========================================
+# # --- BAGIAN AUTO-GENERATE ARSITEKTUR KE LATEX ---
+# # ==========================================
 
-# --- AMBIL DATA REAL DARI VARIABEL DI ATAS ---
-# 1. Optimizer: Ambil langsung dari object model biar akurat
-real_optimizer = model.optimizer.get_config()['name'] 
+# # Ambil data unit/rate dari layer
+# lstm1_units = model.layers[0].units
+# drop1_rate  = model.layers[1].rate
+# lstm2_units = model.layers[2].units
+# drop2_rate  = model.layers[3].rate
+# lstm3_units = model.layers[4].units
+# dense1_units = model.layers[5].units
+# dense2_units = model.layers[6].units
+# output_units = model.layers[7].units
 
-# 2. Learning Rate: Coba ambil dari optimizer yang aktif
-real_lr = model.optimizer.learning_rate.numpy()
+# # append ke string tex_content yang sudah ada sebelumnya
+# tex_content += f"""
+# % --- ARSITEKTUR MODEL DINAMIS ---
+# \\newcommand{{\\TrainSeqLength}}{{{sequence_length}}}
+# \\newcommand{{\\TrainInputFeatures}}{{63}} % 21 titik x 3 dimensi
 
-# Ambil nama loss, pastikan string, dan ganti '_' dengan '\_' agar aman di LaTeX
-raw_loss = model_loss
-if hasattr(raw_loss, '__name__'): # Jika loss berupa object fungsi
-    raw_loss = raw_loss.__name__
+# \\newcommand{{\\LstmOneUnits}}{{{lstm1_units}}}
+# \\newcommand{{\\DropOneRate}}{{{drop1_rate}}}
+# \\newcommand{{\\LstmTwoUnits}}{{{lstm2_units}}}
+# \\newcommand{{\\DropTwoRate}}{{{drop2_rate}}}
+# \\newcommand{{\\LstmThreeUnits}}{{{lstm3_units}}}
 
-# Escape underscore untuk LaTeX (categorical_crossentropy -> categorical\_crossentropy)
-safe_loss_fn = str(raw_loss).replace('_', '\\_') 
-# ---------------------------
+# \\newcommand{{\\DenseOneUnits}}{{{dense1_units}}}
+# \\newcommand{{\\DenseTwoUnits}}{{{dense2_units}}}
+# \\newcommand{{\\OutputUnits}}{{{output_units}}}
+# """
 
-# 3. Split Ratio: Hitung persentase real
-real_split_val = int(test_size * 100)
-real_split_train = 100 - real_split_val
+# # Tulis ulang file config dengan tambahan baru
+# with open(OUTPUT_CONFIG_FILE, "w") as f:
+#     f.write(tex_content)
 
-# 4. Buat Konten LaTeX
-tex_content = f"""% Data Konfigurasi Training Otomatis
-% Diambil langsung dari variabel eksekusi Python
-% Tanggal: {time.strftime("%Y-%m-%d %H:%M:%S")}
-
-\\newcommand{{\\TrainOptimizer}}{{{real_optimizer}}}
-\\newcommand{{\\TrainLearningRate}}{{{real_lr}}}
-\\newcommand{{\\TrainLossFn}}{{{safe_loss_fn}}}
-\\newcommand{{\\TrainBatchSize}}{{{batch_size}}}  % Mengambil variabel BATCH_SIZE
-\\newcommand{{\\TrainMaxEpochs}}{{{max_epochs}}}  % Mengambil variabel MAX_EPOCHS
-\\newcommand{{\\TrainPatience}}{{{patience}}}      % Mengambil variabel PATIENCE
-\\newcommand{{\\TrainSplitTrain}}{{{real_split_train}}} % Hasil hitungan
-\\newcommand{{\\TrainSplitVal}}{{{real_split_val}}}     % Hasil hitungan
-"""
-
-with open(OUTPUT_CONFIG_FILE, "w") as f:
-    f.write(tex_content)
-
-print(f"✅ Konfigurasi tersimpan di: {OUTPUT_CONFIG_FILE}")
-
-
-# ==========================================
-# --- BAGIAN AUTO-GENERATE ARSITEKTUR KE LATEX ---
-# ==========================================
-
-# Ambil data unit/rate dari layer
-lstm1_units = model.layers[0].units
-drop1_rate  = model.layers[1].rate
-lstm2_units = model.layers[2].units
-drop2_rate  = model.layers[3].rate
-lstm3_units = model.layers[4].units
-dense1_units = model.layers[5].units
-dense2_units = model.layers[6].units
-output_units = model.layers[7].units
-
-# append ke string tex_content yang sudah ada sebelumnya
-tex_content += f"""
-% --- ARSITEKTUR MODEL DINAMIS ---
-\\newcommand{{\\TrainSeqLength}}{{{sequence_length}}}
-\\newcommand{{\\TrainInputFeatures}}{{63}} % 21 titik x 3 dimensi
-
-\\newcommand{{\\LstmOneUnits}}{{{lstm1_units}}}
-\\newcommand{{\\DropOneRate}}{{{drop1_rate}}}
-\\newcommand{{\\LstmTwoUnits}}{{{lstm2_units}}}
-\\newcommand{{\\DropTwoRate}}{{{drop2_rate}}}
-\\newcommand{{\\LstmThreeUnits}}{{{lstm3_units}}}
-
-\\newcommand{{\\DenseOneUnits}}{{{dense1_units}}}
-\\newcommand{{\\DenseTwoUnits}}{{{dense2_units}}}
-\\newcommand{{\\OutputUnits}}{{{output_units}}}
-"""
-
-# Tulis ulang file config dengan tambahan baru
-with open(OUTPUT_CONFIG_FILE, "w") as f:
-    f.write(tex_content)
-
-print(f"✅ Konfigurasi & Arsitektur tersimpan di: {OUTPUT_CONFIG_FILE}")
+# print(f"✅ Konfigurasi & Arsitektur tersimpan di: {OUTPUT_CONFIG_FILE}")
